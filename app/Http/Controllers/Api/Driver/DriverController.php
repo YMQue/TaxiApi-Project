@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Driver;
 
+use App\Events\DriverArrived;
 use App\Events\RideAccepted;
 use App\Http\Controllers\Controller;
 use App\Jobs\SearchForDriver;
@@ -54,19 +55,20 @@ class DriverController extends Controller
     return response()->json([
         'success' => true,
         'message' => 'Ride accepted',
-        'data' =>[ $ride->id,
-                    $ride->rider_id,
-                    $ride->driver_id,
-                    $ride->car_type_id,
-                    $ride->status,
-                    $ride->pickup_lat,
-                    $ride->pickup_lng,
-                    $ride->pickup_address,
-                    $ride->drop_lat,
-                    $ride->drop_lng,
-                    $ride->drop_address,
-                    $ride->estimated_fare,
-                    $ride->payment_method,
+        'data' =>[ 
+          'id' => $ride->id,
+           'rider id'=> $ride->rider_id,
+           'driver_id'=>  $ride->driver_id,
+          'car_type_id' => $ride->car_type_id,
+           'status'=> $ride->status,
+           'pickup_lat'=> $ride->pickup_lat,
+           'pickup_lng'=> $ride->pickup_lng,
+           'pickup_address'=> $ride->pickup_address,
+           'drop_lat'=> $ride->drop_lat,
+          'drop_lng' => $ride->drop_lng,
+         'drop_address' =>  $ride->drop_address,
+         'estimated_fare' =>  $ride->estimated_fare,
+          'payment_method'=>  $ride->payment_method,
         ]
     ],201);
 }
@@ -93,4 +95,35 @@ public function reject(Request $request, int $id)
         'message' => 'Driver rejected. Searching again.',
     ],201);
 }    
+
+public function arrived(int $id)
+{
+      $ride = Ride::where('id', $id)
+        ->where('status', 'accepted')
+        ->firstOrFail();  
+        $driver = auth()->user()->driver;
+
+
+          $ride->update([
+        'driver_id' => $driver->id,
+        'status' => 'arrived',
+        'arrived' => now(),
+    ]);
+
+     ride_status_log::create([
+        'ride_id' => $id,
+        'status' => 'driver_arrived',
+        'changed_by' => 'driver',
+        'note' => "driver_id:{$driver->id}",
+    ]);
+            broadcast(new DriverArrived($ride, $driver));
+
+        return response()->json([
+            'status' => true,
+            'message' =>'Arrived'
+        ]);
+
+
+
+}
 }

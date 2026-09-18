@@ -36,6 +36,7 @@ Route::middleware('auth:sanctum')->group(function(){
         Route::get('status',[DriverController::class, 'status']);
         Route::post('rides/{id}/accept',[DriverController::class,'accept']);
         Route::post('rides/{id}/reject',[DriverController::class,'reject']);
+        Route::post('rides/{id}/arrived',[DriverController::class,'arrived']);
 
     });
 
