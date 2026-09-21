@@ -5,7 +5,33 @@ use App\Models\Ride;
 interface RideRepositoryInterface
 {
     public function estimateFare(array $data);
- 
+    public function findForRider(int $rideId, int $rider_id): ?Ride;
+    public function paginateForRider(int $rider_id, int $perPage = 15, ?string $status = null);
+    public function createRide(int $riderId, array $data): Ride;
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+    public function acceptRide(int $rideId, int $driverId): Ride;
+    public function rejectRide(int $rideId, int $driverId): void;
+    public function markArrived(int $rideId, int $driverId): Ride;
+    public function startRide(int $rideId, int $driverId): Ride;
+    public function completeRide(int $rideId, int $driverId): Ride;
+
+
+
+
+
    
     
     

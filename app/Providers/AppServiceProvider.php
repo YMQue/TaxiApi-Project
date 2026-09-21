@@ -35,5 +35,11 @@ class AppServiceProvider extends ServiceProvider
         $key = $request->input('phone') ?: $request->ip();
         return Limit::perMinute(10)->by($key);
     });
+
+    // AppServiceProvider::boot()
+RateLimiter::for('driver-location', function (Request $request) {
+    // حد أقصى 30 طلب في الدقيقة لكل سائق (حماية لو التطبيق بعت بسرعة زيادة)
+    return Limit::perMinute(30)->by($request->user()->id);
+});
     }
 }

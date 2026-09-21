@@ -1,8 +1,9 @@
 <?php
 namespace App\Repositories\Eloquent;
 
-use App\Repositories\Contracts\UserRepositoryInterface;
+use App\Models\Ride;
 use App\Models\User;
+use App\Repositories\Contracts\UserRepositoryInterface;
 
 class UserRepository implements UserRepositoryInterface
 {
@@ -36,4 +37,8 @@ class UserRepository implements UserRepositoryInterface
     {
         return $user->delete();
     }
+
+    
+
+   
 }   

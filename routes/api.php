@@ -20,7 +20,7 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::put('/auth/profile', [AuthController::class, 'updateProfile']);
     Route::post('/auth/fcm-token', [AuthController::class, 'updateFcmToken']);
-
+                    //-------------Rider-------------//
      Route::middleware('role:rider')->prefix('rider')->group(function () {
             Route::get('wallet', [RiderWalletController::class, 'show']);
             Route::get('wallet/transactions', [RiderWalletController::class, 'transactions']);
@@ -29,14 +29,22 @@ Route::middleware('auth:sanctum')->group(function(){
 
      Route::post('rides/estimate', [RideController::class, 'estimate']);
      Route::post('rides/request', [RideController::class, 'request']);
+     Route::get('rides/{id}',[RideController::class, 'show']);
+     Route::get('rides',[RideController::class, 'index']);
+
 
     });
-
+                    //-------------Driver-------------//                              
     Route::middleware('role:driver')->prefix('driver')->group(function () {
         Route::get('status',[DriverController::class, 'status']);
         Route::post('rides/{id}/accept',[DriverController::class,'accept']);
         Route::post('rides/{id}/reject',[DriverController::class,'reject']);
         Route::post('rides/{id}/arrived',[DriverController::class,'arrived']);
+        Route::post('rides/{id}/start',[DriverController::class,'start']);
+        Route::post('rides/{id}/completed',[DriverController::class,'complete']);
+
+        Route::middleware('throttle:driver-location')
+    ->post('location', [DriverController::class, 'location']);
 
     });
 

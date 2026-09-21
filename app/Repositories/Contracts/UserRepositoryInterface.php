@@ -2,6 +2,7 @@
 
 namespace App\Repositories\Contracts;
 
+use App\Models\Ride;
 use App\Models\User;
 
 interface UserRepositoryInterface
@@ -12,6 +13,8 @@ interface UserRepositoryInterface
     public function findOrCreateByPhone(string $phoneNumber, array $defaults = []): User;
     public function getById(int $id): ?User;
     public function delete(User $user): bool;
+    
+   
 }
 
 

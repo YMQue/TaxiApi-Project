@@ -38,6 +38,16 @@ class DriverRepository implements DriverRepositoryInterface
             ->orderBy('distance_km')
             ->first();
     }
+    public function updateLocation(Driver $driver, float $lat, float $lng, ?float $bearing = null): Driver
+    {
+        $driver->update([
+            'current_lat' => $lat,
+            'current_lng' => $lng,
+            'bearing'     => $bearing ?? 0,
+        ]);
+ 
+        return $driver;
+    }
     
      
    

@@ -14,13 +14,8 @@ Broadcast::channel('driver.{driverId}', function ($user, int $driverId) {
 Broadcast::channel('ride.{rideId}', function ($user, int $rideId) {
     $ride = Ride::find($rideId);
  
-    if (!$ride) {
-        return false;
-    }
- 
-    if ($ride->rider_id === $user->id) {
-        return true;
-    }
- 
-    return $user->driver && $ride->driver_id === $user->driver->id;
+  return $ride && (
+        $ride->rider_id === $user->id ||
+        optional($user->driver)->id === $ride->driver_id
+    );
 });
