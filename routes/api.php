@@ -3,9 +3,9 @@
 use App\Http\Controllers\Api\AdminAuthController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\Driver\DriverController;
+use App\Http\Controllers\Api\Driver\DriverWalletController;
 use App\Http\Controllers\Api\Rider\RideController;
 use App\Http\Controllers\Api\Rider\RiderWalletController;
-//use App\Http\Controllers\FireBaseController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/send-otp', [AuthController::class, 'sendOtp'])->middleware('throttle:otp_send');
@@ -22,9 +22,9 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::post('/auth/fcm-token', [AuthController::class, 'updateFcmToken']);
                     //-------------Rider-------------//
      Route::middleware('role:rider')->prefix('rider')->group(function () {
-            Route::get('wallet', [RiderWalletController::class, 'show']);
-            Route::get('wallet/transactions', [RiderWalletController::class, 'transactions']);
-            Route::post('wallet/topup', [RiderWalletController::class, 'topup']);
+             Route::get('wallet', [RiderWalletController::class, 'wallet']);
+             Route::get('wallet/transactions', [RiderWalletController::class, 'transactions']);
+             Route::post('wallet/topup', [RiderWalletController::class, 'topup']);
             
 
      Route::post('rides/estimate', [RideController::class, 'estimate']);
@@ -46,6 +46,12 @@ Route::middleware('auth:sanctum')->group(function(){
         Route::middleware('throttle:driver-location')
     ->post('location', [DriverController::class, 'location']);
 
+
+    Route::get('wallet', [DriverWalletController::class, 'wallet']);
+    Route::get('wallet/transactions', [DriverWalletController::class, 'transactions']);
+    Route::post('wallet/withdraw', [DriverWalletController::class, 'withdraw']);
+    Route::get('wallet/withdraw-status', [DriverWalletController::class, 'withdraw_status']);
+    
     });
 
     Route::post('/admin/logout', [AdminAuthController::class, 'logout']);

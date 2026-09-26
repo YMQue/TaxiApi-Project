@@ -1,22 +1,20 @@
 <?php
 
 namespace App\Models;
+
 use App\Models\CarType;
 use App\Models\Notification;
 use App\Models\User;
-use Bavix\Wallet\Interfaces\Wallet;
-use Bavix\Wallet\Traits\CanConfirm;
-use Bavix\Wallet\Traits\HasWallet;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 
-class Driver extends Authenticatable implements Wallet
+class Driver extends Authenticatable
 {
-     use HasApiTokens, Notifiable,HasWallet,CanConfirm;
+    use HasApiTokens, Notifiable;
 
-     protected $fillable = [
+    protected $fillable = [
         'user_id',
         'car_type_id',
         'license_number',
@@ -29,14 +27,14 @@ class Driver extends Authenticatable implements Wallet
         'status',
     ];
 
-      protected $casts = [
+    protected $casts = [
         'is_online' => 'boolean',
         'rate' => 'string',
     ];
 
 
-        // ================= Relationships =================
-    
+    // ================= Relationships =================
+
 
     public function user()
     {
@@ -54,17 +52,24 @@ class Driver extends Authenticatable implements Wallet
     }
     public function WithdrawalRequest()
     {
-        return $this->hasMany(WithdrawalRequest::class); 
+        return $this->hasMany(WithdrawalRequest::class);
     }
 
     public function notifications()
-{
-    return $this->morphMany(Notification::class, 'notifiable');
-}
- 
+    {
+        return $this->morphMany(Notification::class, 'notifiable');
+    }
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class)->where('user_type', 'driver');
+    }
+
+  
 
 
-     // ================= Accessors / Helpers =================
+
+
+    // ================= Accessors / Helpers =================
 
     public function isActive(): bool
     {
@@ -76,8 +81,5 @@ class Driver extends Authenticatable implements Wallet
         return $this->is_online && $this->isActive();
     }
 
-
-    
-   
     
 }

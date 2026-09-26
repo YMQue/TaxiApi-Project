@@ -7,6 +7,7 @@ use App\Http\Requests\ProfileUpdateRequest;
 use App\Http\Requests\RegisterRequest;
 use App\Http\Requests\SendOtpRequest;
 use App\Http\Requests\VerifyOtpRequest;
+use App\Models\Wallet;
 use App\Repositories\Contracts\DriverRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Services\OtpService;
@@ -84,6 +85,7 @@ class AuthController extends Controller
         $this->userRepository->update($user, $request->only(['name', 'email', 'avatar']));
 
         if($request->is_driver){
+            
             $this->driverRepository->create([
                 'user_id' => $user->id,
                 'car_type_id' => $request->car_type_id,
@@ -91,7 +93,9 @@ class AuthController extends Controller
                 'plate_number' => $request->plate_number,
                 'status' => 'pending',
             ]);
+            
         }
+        
         return response()->json([
             'success' => true,
             'message' => 'User registered successfully.',

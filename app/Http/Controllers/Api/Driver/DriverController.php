@@ -11,6 +11,7 @@ use App\Http\Controllers\Controller;
 use App\Jobs\SearchForDriver;
 use App\Repositories\Contracts\DriverRepositoryInterface;
 use App\Repositories\Contracts\RideRepositoryInterface;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 
 class DriverController extends Controller
@@ -18,6 +19,7 @@ class DriverController extends Controller
     public function __construct(
         private RideRepositoryInterface $rides,
         private DriverRepositoryInterface $drivers,
+        private WalletService $wallet
     ) {}
 
     public function status(Request $request)
@@ -147,8 +149,10 @@ class DriverController extends Controller
         $driver = $request->user()->driver;
 
         $ride = $this->rides->completeRide($id, $driver->id);
+        
 
         broadcast(new RideCompleted($ride));
+       
 
 
         return response()->json([

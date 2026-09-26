@@ -74,6 +74,8 @@ class Ride extends Model
         return $this->hasMany(RideLocation::class);
     }
 
-
-      
+    public function walletTransactions()
+    {
+        return $this->morphMany(WalletTranactions::class, 'reference');
+    }
 }

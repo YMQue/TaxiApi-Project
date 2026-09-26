@@ -7,6 +7,7 @@ use App\Models\Driver;
 use App\Models\ride_status_log;
 use App\Models\Ride;
 use App\Repositories\Contracts\RideRepositoryInterface;
+use App\Services\WalletService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,12 @@ use Illuminate\Validation\ValidationException;
 
 class RideRepository implements RideRepositoryInterface
 {
+    private WalletService $wallet;
+
+    public function __construct(WalletService $wallet)
+    {
+        $this->wallet = $wallet;
+    }
 
     //------------Ride\Rider-----------//
     public function estimateFare(array $data)
@@ -84,6 +91,15 @@ class RideRepository implements RideRepositoryInterface
 
     public function createRide(int $riderId, array $data): Ride
     {
+         $activeRide = Ride::where('rider_id', $riderId)
+        ->whereNotIn('status', ['completed', 'cancelled'])
+        ->exists();
+
+    if ($activeRide) {                    // التحقق من ان كان الراكب عنده رحلة شغالة
+        throw ValidationException::withMessages([
+            'ride' => 'You already have an active ride. Please complete or cancel it before requesting a new one.',
+        ]);
+    }
         $estimate = collect($this->estimateFare($data))
             ->firstWhere('car_type_id', $data['car_type_id']);
 
@@ -92,6 +108,17 @@ class RideRepository implements RideRepositoryInterface
                 'car_type_id' => 'Selected car type is not available for this trip.',
             ]);
         }
+
+        $wallet = $this->wallet->getBalance($riderId, 'rider');
+
+        if ($data['payment_method'] === 'wallet') {                           // wallet balance check
+            if ($wallet['balance'] < $estimate['estimated_fare']) {
+                throw ValidationException::withMessages([
+                    'payment_method' => 'Insufficient wallet balance for this ride.',
+                ]);
+            }
+        }
+
 
         return DB::transaction(function () use ($riderId, $data, $estimate) {
             $ride = Ride::create([
@@ -203,10 +230,18 @@ class RideRepository implements RideRepositoryInterface
             ->where('driver_id', $driverId)
             ->where('status', 'in_progress')
             ->firstOrFail();
+        $rider = $ride->rider_id;
+        $method = $ride->payment_method;
 
         $commissionRate = 0.2;
         $fare           = $ride->estimated_fare;
         $finalFare      = $fare - ($fare * $commissionRate);
+
+        if ($method === 'wallet') {
+            $this->wallet->credit($driverId, $finalFare, 'driver', 'Driver earning');
+            $this->wallet->debit($rider, $fare, 'rider', 'Ride Payment');
+        }
+
 
         $ride->update([
             'status'     => 'completed',

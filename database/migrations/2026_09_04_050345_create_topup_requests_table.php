@@ -14,19 +14,17 @@ return new class extends Migration
         Schema::create('topup_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->enum('user_type', ['driver', 'rider']);
-            $table->decimal('amount', 15, 2);
+            $table->float('amount');
             $table->string('method')->nullable();
-            $table->string('payment_ref')->nullable();
+            $table->string('payment_ref')->unique()->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->text('admin_note')->nullable();
 
-            $table->foreignId('wallet_transaction_id')->nullable()
-                ->constrained('transactions')->cascadeOnDelete();
+            
 
             $table->timestamps();
-            $table->index(['user_id', 'user_type']);
-            $table->index('status');
+            $table->index(['status', 'created_at']);
+            
         });
     }
 

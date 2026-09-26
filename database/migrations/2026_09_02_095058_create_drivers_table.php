@@ -21,7 +21,6 @@ return new class extends Migration
             $table->decimal('current_lat', 10, 8)->nullable();
             $table->decimal('current_lng', 11, 8)->nullable();
             $table->enum('rate',['1','2','3','4','5'])->default('5');
-            $table->float('wallet_balance')->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->timestamps();
         });

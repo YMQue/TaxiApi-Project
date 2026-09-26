@@ -8,7 +8,6 @@
     "require": {
         "php": "^8.3",
         "alexpechkarev/google-maps": "^12.16",
-        "bavix/laravel-wallet": "^12.1",
         "doctrine/dbal": "^4.4",
         "iroid/laravel-haversine": "@dev",
         "kreait/firebase-php": "^8.5",

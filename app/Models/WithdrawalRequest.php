@@ -3,10 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WithdrawalRequest extends Model
 {
-    protected $fillable = [
+     protected $fillable = [
         'driver_id',
         'amount',
         'bank_name',
@@ -14,7 +15,6 @@ class WithdrawalRequest extends Model
         'iban',
         'status',
         'admin_note',
-        'wallet_transaction_id',
         'processed_at',
     ];
  
@@ -23,13 +23,13 @@ class WithdrawalRequest extends Model
         'processed_at' => 'datetime',
     ];
  
-    public function driver()
+    public function user(): BelongsTo
     {
-        return $this->belongsTo(Driver::class);
+        return $this->belongsTo(user::class);
     }
- 
-    public function scopePending($query)
-    {
-        return $query->where('status', 'pending');
-    }
+
+    public function walletTransactions()
+{
+    return $this->morphMany(WalletTranactions::class, 'reference');
+}
 }

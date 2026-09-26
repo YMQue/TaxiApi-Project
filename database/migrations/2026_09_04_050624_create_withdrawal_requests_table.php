@@ -14,18 +14,20 @@ return new class extends Migration
         Schema::create('withdrawal_requests', function (Blueprint $table) {
             $table->id();
             $table->foreignId('driver_id')->constrained('drivers')->onDelete('cascade');
-            $table->decimal('amount', 15, 2);
+            $table->float('amount');
             $table->string('bank_name');
             $table->string('account_number');
-            $table->string('iban');
+            $table->string('iban')->nullable();
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->text('admin_note')->nullable();
             
-            $table->foreignId('wallet_transaction_id')
-                ->constrained('transactions')->cascadeOnDelete();
+           
 
             $table->timestamp('processed_at')->useCurrent();
             $table->timestamps();
+
+
+               $table->index(['status', 'created_at']);
         });
     }
 

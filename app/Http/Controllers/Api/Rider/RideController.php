@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Rider;
 
+use App\Events\RideRequest;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\EstimateRideRequest;
 use App\Http\Requests\RequestRideRequest;
@@ -30,6 +31,7 @@ class RideController extends Controller
         $ride = $this->rides->createRide($request->user()->id, $request->validated());
 
         SearchForDriver::dispatch($ride->id);
+        
 
         return response()->json([
             'success' => true,

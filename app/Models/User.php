@@ -5,8 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Models\Driver;
 use App\Models\Notification;
-use Bavix\Wallet\Interfaces\Wallet;
-use Bavix\Wallet\Traits\HasWallet;
+use App\Models\Wallet;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -26,10 +25,10 @@ use Laravel\Sanctum\HasApiTokens;
     'avatar',
 ])]
 #[Hidden(['remember_token', 'deleted_at',])]
-class User extends Authenticatable implements Wallet
+class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, SoftDeletes, HasWallet;
+    use HasFactory, Notifiable, HasApiTokens, SoftDeletes;
 
     /**
      * Get the attributes that should be cast.
@@ -58,10 +57,17 @@ class User extends Authenticatable implements Wallet
     {
         return $this->morphMany(Notification::class, 'notifiable');
     }
-     public function routeNotificationForFcm(): string|array|null
+    public function routeNotificationForFcm(): string|array|null
     {
         return $this->fcm_token;
     }
+
+    public function Wallet()
+    {
+        return $this->hasOne(Wallet::class)->where('user_type', 'rider');
+    }
+
+
 
 
 
@@ -81,4 +87,6 @@ class User extends Authenticatable implements Wallet
     {
         return $this->driver()->exists();
     }
+
+  
 }

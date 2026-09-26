@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('email')->unique()->nullable();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('fcm_token')->nullable();
-            $table->Float('wallet_balance')->nullable();
             $table->string('phone_number', 20)->unique();
             $table->enum('status', ['active', 'suspended'])->default('active');
             $table->string('avatar')->nullable();
