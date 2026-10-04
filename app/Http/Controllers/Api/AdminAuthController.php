@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminLoginRequest;
-use App\Contracts\Repositories\AdminRepositoryInterface;
-use Illuminate\Support\Facades\Hash;
+use App\Repositories\Contracts\AdminRepositoryInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class AdminAuthController extends Controller
 {
@@ -38,7 +38,7 @@ class AdminAuthController extends Controller
                 'token_type'   => 'Bearer',
                 'admin'        => $admin->only(['id', 'name', 'email', 'role']),
             ]
-        ]);
+        ],201);
     }
 
     public function logout(Request $request)

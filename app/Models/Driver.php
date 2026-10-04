@@ -63,6 +63,10 @@ class Driver extends Authenticatable
     {
         return $this->hasOne(Wallet::class)->where('user_type', 'driver');
     }
+    public function rides()
+    {
+        return $this->hasMany(Ride::class, 'driver_id');
+    }
 
   
 

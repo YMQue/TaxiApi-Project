@@ -69,9 +69,9 @@ class Ride extends Model
         return $this->hasOne(Rating::class);
     }
 
-    public function locations(): HasMany
+    public function locations(): HasOne
     {
-        return $this->hasMany(RideLocation::class);
+         return $this->hasOne(RideLocation::class)->latestOfMany('recorded_at');
     }
 
     public function walletTransactions()

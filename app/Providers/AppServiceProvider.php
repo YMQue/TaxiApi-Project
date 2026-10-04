@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Admin;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -45,11 +46,14 @@ RateLimiter::for('driver-location', function (Request $request) {
 
 
 Relation::enforceMorphMap([
+    'admin'  => Admin::class,
     'rider' => \App\Models\User::class,
     'driver' => \App\Models\Driver::class,
     'ride'    => \App\Models\Ride::class,
     'topup'   => \App\Models\TopupRequest::class,
     'withdrawal' => \App\Models\WithdrawalRequest::class,
+    'topup_request' => \App\Models\TopupRequest::class,
+    
 ]);
     }
 }

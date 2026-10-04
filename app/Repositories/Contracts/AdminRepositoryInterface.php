@@ -1,10 +1,10 @@
 <?php
 
-namespace App\Contracts\Repositories;
+namespace App\Repositories\Contracts;
 
 use App\Models\Admin;
 
-interface AdminRepositoryInterface
+interface AdminRepositoryinterface
 {
     public function findByEmail(string $email): ?Admin;
 }

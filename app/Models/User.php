@@ -66,6 +66,11 @@ class User extends Authenticatable
     {
         return $this->hasOne(Wallet::class)->where('user_type', 'rider');
     }
+    public function rides()
+    {
+        return $this->hasMany(Ride::class,'rider_id');
+
+    }
 
 
 
@@ -87,6 +92,11 @@ class User extends Authenticatable
     {
         return $this->driver()->exists();
     }
+
+    public function scopeRiders($query)
+{
+    return $query->whereDoesntHave('driver');
+}
 
   
 }

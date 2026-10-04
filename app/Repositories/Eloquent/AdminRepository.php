@@ -2,8 +2,8 @@
 
 namespace App\Repositories\Eloquent;
 
-use App\Contracts\Repositories\AdminRepositoryInterface;
 use App\Models\Admin;
+use App\Repositories\Contracts\AdminRepositoryInterface;
 
 class AdminRepository implements AdminRepositoryInterface
 {

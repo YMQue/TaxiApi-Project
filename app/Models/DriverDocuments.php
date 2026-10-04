@@ -17,5 +17,10 @@ class DriverDocuments extends Model
     {
         return $this->belongsTo(Driver::class);
     }
+
+public function getFileUrlAttribute(): ?string
+{
+    return $this->file_path ? asset('storage/' . $this->file_path) : null;
+}
     
 }

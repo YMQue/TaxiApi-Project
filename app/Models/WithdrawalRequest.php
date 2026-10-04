@@ -28,6 +28,12 @@ class WithdrawalRequest extends Model
         return $this->belongsTo(user::class);
     }
 
+    public function driver(): BelongsTo
+    {
+        return $this->belongsTo(driver::class);
+        
+    }
+
     public function walletTransactions()
 {
     return $this->morphMany(WalletTranactions::class, 'reference');
