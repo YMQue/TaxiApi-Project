@@ -30,6 +30,7 @@ class Ride extends Model
         'cancelled_at',
         'cancel_reason',
         'cancel_by',
+        
     ];
 
     protected $casts = [

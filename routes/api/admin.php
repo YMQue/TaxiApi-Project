@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Admin\SettingController;
 use App\Http\Controllers\Api\Admin\Dashboard;
 use App\Http\Controllers\Api\Admin\RideController;
 use App\Http\Controllers\Api\Admin\WalletController;
@@ -37,6 +38,10 @@ Route::prefix('admin')->group(function () {
         Route::get('rides', [RideController::class, 'index']);
         Route::get('rides/{id}', [RideController::class, 'show'])->whereNumber('id');
         Route::get('rides/live', [RideController::class, 'live']);
+                //---------Pricing
+        Route::get('settings',[SettingController::class,'index']);
+        Route::put('settings',[SettingController::class,'update']);
+
 
 
 

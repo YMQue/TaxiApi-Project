@@ -17,5 +17,8 @@ Route::middleware(['auth:sanctum', 'role:rider'])->prefix('rider')->group(functi
         Route::post('estimate', 'estimate');
         Route::post('request', 'request');
         Route::get('{id}', 'show')->whereNumber('id');
+        Route::post('{id}/rate','rate')->whereNumber('id');
+        Route::post('{id}/cancel','cancel')->whereNumber('id');
+
     });
 });

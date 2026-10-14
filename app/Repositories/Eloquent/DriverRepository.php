@@ -4,10 +4,16 @@ namespace App\Repositories\Eloquent;
 
 use App\Models\Driver;
 use App\Models\Ride;
+use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use App\Repositories\Contracts\DriverRepositoryInterface;
 
 class DriverRepository implements DriverRepositoryInterface
 {
+    private SettingRepositoryInterface $setting;
+    public function __construct(SettingRepositoryInterface $setting)
+    {
+        $this->setting = $setting;
+    }
     public function create(array $data): Driver
     {
         return Driver::create($data);
@@ -34,7 +40,7 @@ class DriverRepository implements DriverRepositoryInterface
             ->where('is_online', true)
             ->where('status', 'active')
             ->whereNotIn('id', $excludedDriverIds)
-            //->having('distance_km', '<=', 10)
+            ->having('distance_km', '<=', $this->setting->get('driver_search_radius_km'))
             ->orderBy('distance_km')
             ->first();
     }

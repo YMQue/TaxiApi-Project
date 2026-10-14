@@ -1,6 +1,7 @@
 <?php
 namespace App\Services;
 
+use App\Exceptions\BusinessRuleException;
 use App\Models\Wallet;
 use App\Models\WalletTranactions;
 use Exception;
@@ -62,7 +63,7 @@ public function getWallet(int $userId, string $userType): Wallet
      private function applyTransaction(int $userId, float $amount, string $type, string $userType, ?string $description,?Model $reference = null): Wallet
     {
         if ($amount <= 0) {
-            throw new Exception('Amount must be greater than zero.');
+             throw new BusinessRuleException('Amount must be greater than zero.');
         }
 
          $this->getWallet($userId, $userType);
@@ -74,7 +75,7 @@ public function getWallet(int $userId, string $userType): Wallet
                 ->first();
 
                 if ($type === 'debit' && $wallet->balance < $amount) {
-                throw new Exception('Insufficient wallet balance.');
+                throw new BusinessRuleException('Insufficient wallet balance.');
             }
 
             $wallet->balance = $type === 'credit'

@@ -1,5 +1,6 @@
 <?php
 namespace App\Repositories\Contracts;
+use App\Models\Rating;
 use App\Models\Ride;
 
 interface RideRepositoryInterface
@@ -8,7 +9,7 @@ interface RideRepositoryInterface
     public function findForRider(int $rideId, int $rider_id): ?Ride;
     public function paginateForRider(int $rider_id, int $perPage = 15, ?string $status = null);
     public function createRide(int $riderId, array $data): Ride;
-    
+    public function rate(int $rideId, string $role, int $actorId, int $rating, ?string $comment = null): Rating;
 
 
 
@@ -16,7 +17,7 @@ interface RideRepositoryInterface
 
 
 
-
+    public function cancelRide(int $rideId, string $by, int $actorId, ?string $reason = null): Ride;
 
 
 

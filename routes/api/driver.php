@@ -17,6 +17,9 @@ Route::middleware(['auth:sanctum', 'role:driver'])->prefix('driver')->group(func
             Route::post('arrived', 'arrived');
             Route::post('start', 'start');
             Route::post('completed', 'complete');
+            Route::post('rate','rate');
+            Route::post('cancel','cancel');
+
         });
     });
 

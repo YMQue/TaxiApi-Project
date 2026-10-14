@@ -2,107 +2,83 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Concerns\ApiResponse;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\ListTopupRequestsRequest;
 use App\Http\Requests\Admin\ListWithdrawRequestsRequest;
 use App\Http\Requests\Admin\ManualWalletAdjustRequest;
+use App\Http\Requests\ApproveRequest;
+use App\Http\Requests\RejectRequest;
 use App\Http\Resources\Admin\TopupRequestResource;
 use App\Http\Resources\Admin\WithdrawRequestResource;
 use App\Repositories\Contracts\Admin\WalletRepositoryInterface;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 class WalletController extends Controller
 {
+    use ApiResponse;
+
     public function __construct(
-        protected WalletRepositoryInterface $Wallet
+        protected WalletRepositoryInterface $wallet
     ) {}
-     public function topup_index(ListTopupRequestsRequest $request)
+
+    public function topupIndex(ListTopupRequestsRequest $request): JsonResponse
     {
         $filters = $request->validated();
 
-        $topups = $this->Wallet->Topup_paginateWithFilters(
+        $topups = $this->wallet->Topup_paginateWithFilters(
             $filters,
             (int) ($filters['per_page'] ?? 15)
         );
 
-        return TopupRequestResource::collection($topups);
+        return $this->success('Topup list', TopupRequestResource::collection($topups));
     }
-    public function topup_approve( int $id , Request $request)
+
+    public function topupApprove(int $id, ApproveRequest $request): JsonResponse
     {
-        $data = $request->validate([
-        'admin_note' => ['nullable', 'string', 'max:500'],
-    ]);
+        $topup = $this->wallet->approveTopup($id, $request->validated()['admin_note'] ?? null);
 
-    $topup = $this->Wallet->approveTopup($id, $data['admin_note'] ?? null);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Topup request retrieved successfully.',
-            'data'    => new TopupRequestResource($topup),
-        ],201);
+        return $this->success("Topup request #{$id} approved successfully.", new TopupRequestResource($topup));
     }
 
-    public function topup_reject(Request $request, int $id)
-{
-    $data = $request->validate([
-        'admin_note' => ['required', 'string', 'max:500'],
-    ]);
+    public function topupReject(int $id, RejectRequest $request): JsonResponse
+    {
+        $topup = $this->wallet->rejectTopup($id, $request->validated()['admin_note']);
 
-    $topup = $this->Wallet->rejectTopup($id, $data['admin_note']);
+        return $this->success("Topup request #{$id} rejected.", new TopupRequestResource($topup));
+    }
 
-    return response()->json([
-            'success' => true,
-            'message' => 'Topup request rejected.',
-            'data'    => new TopupRequestResource($topup),
-        ],201);
-}
-  public function Withdrawl_index(ListWithdrawRequestsRequest $request)
+    public function withdrawIndex(ListWithdrawRequestsRequest $request): JsonResponse
     {
         $filters = $request->validated();
 
-        $Withdrawl = $this->Wallet->Withdrawl_paginateWithFilters(
+        $withdrawals = $this->wallet->Withdrawl_paginateWithFilters(
             $filters,
             (int) ($filters['per_page'] ?? 15)
         );
 
-        return WithdrawRequestResource::collection($Withdrawl);
+        return $this->success('Withdrawal list', WithdrawRequestResource::collection($withdrawals));
     }
 
-    public function Withdrawl_approve( int $id , Request $request)
+    public function withdrawApprove(int $id, ApproveRequest $request): JsonResponse
     {
-        $data = $request->validate([
-        'admin_note' => ['nullable', 'string', 'max:500'],
-    ]);
+        $withdrawal = $this->wallet->approveWithdrawl($id, $request->validated()['admin_note'] ?? null);
 
-    $Withdrawl = $this->Wallet->approveWithdrawl($id, $data['admin_note'] ?? null);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Topup request retrieved successfully.',
-            'data'    => new WithdrawRequestResource($Withdrawl),
-        ],201);
+        return $this->success("Withdrawal request #{$id} approved successfully.", new WithdrawRequestResource($withdrawal));
     }
-        public function Withdrawl_reject(Request $request, int $id)
-{
-    $data = $request->validate([
-        'admin_note' => ['required', 'string', 'max:500'],
-    ]);
 
-    $Withdrawl = $this->Wallet->rejectWithdrawl($id, $data['admin_note']);
+    public function withdrawReject(int $id, RejectRequest $request): JsonResponse
+    {
+        $withdrawal = $this->wallet->rejectWithdrawl($id, $request->validated()['admin_note']);
 
-    return response()->json([
-            'success' => true,
-            'message' => 'Topup request rejected.',
-            'data'    => new WithdrawRequestResource($Withdrawl),
-        ],201);
-}
-public function manualAdjust(ManualWalletAdjustRequest $request): JsonResponse
-{
-    $data = $request->validated();
- 
-    try {
-        $this->Wallet->manualAdjust(
+        return $this->success("Withdrawal request #{$id} rejected.", new WithdrawRequestResource($withdrawal));
+    }
+
+    public function manualAdjust(ManualWalletAdjustRequest $request): JsonResponse
+    {
+        $data = $request->validated();
+
+        $this->wallet->manualAdjust(
             (int) $data['user_id'],
             $data['user_type'],
             $data['type'],
@@ -110,16 +86,7 @@ public function manualAdjust(ManualWalletAdjustRequest $request): JsonResponse
             $data['reason'],
             $request->user()->id,
         );
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 422);
+
+        return $this->success('Wallet adjusted successfully.', [], 201);
     }
- 
-    return response()->json([
-        'success' => true,
-        'message' => 'Wallet adjusted successfully.',
-    ]);
-}
 }

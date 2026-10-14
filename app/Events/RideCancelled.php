@@ -17,8 +17,9 @@ class RideCancelled implements ShouldBroadcast
  
     public Ride $ride;
     public string $cancelledBy;
+    
  
-    public function __construct(Ride $ride, string $cancelledBy)
+    public function __construct(Ride $ride, string $cancelledBy,public float $cancellationFee = 0.0,)
     {
         $this->ride = $ride;
         $this->cancelledBy = $cancelledBy;
@@ -43,6 +44,7 @@ class RideCancelled implements ShouldBroadcast
             'cancelled_by'  => $this->cancelledBy,
             'cancel_reason' => $this->ride->cancel_reason,
             'cancelled_at'  => $this->ride->cancelled_at,
+            'cancellation_fee' => $this->cancellationFee,
         ];
     }
 }

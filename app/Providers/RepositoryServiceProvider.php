@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Repositories\Contracts\Admin\AdminRideRepositoryinterface;
 use App\Repositories\Contracts\Admin\Dashboard\RiderRepositoryInterface;
+use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use App\Repositories\Contracts\Admin\WalletRepositoryInterface;
 use App\Repositories\Contracts\AdminRepositoryInterface;
 use App\Repositories\Contracts\DriverRepositoryInterface;
@@ -12,6 +13,7 @@ use App\Repositories\Contracts\RideRepositoryInterface;
 use App\Repositories\Contracts\UserRepositoryInterface;
 use App\Repositories\Eloquent\Admin\AdminRideRepository;
 use App\Repositories\Eloquent\Admin\Dashboard\RiderRepository;
+use App\Repositories\Eloquent\Admin\SettingRepository;
 use App\Repositories\Eloquent\Admin\WalletRepository;
 use App\Repositories\Eloquent\AdminRepository;
 use App\Repositories\Eloquent\DriverRepository;
@@ -35,6 +37,8 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(WalletRepositoryInterface::class,WalletRepository::class);
         $this->app->bind(RiderRepositoryInterface::class, RiderRepository::class);
         $this->app->bind(AdminRideRepositoryinterface::class, AdminRideRepository::class);
+        $this->app->bind(SettingRepositoryInterface::class, SettingRepository::class);
+
 
 
 

@@ -45,7 +45,7 @@ class User extends Authenticatable
 
     public function driver()
     {
-        return $this->hasOne(Driver::class);
+        return $this->hasOne(Driver::class,'user_id');
     }
 
     public function TopupRequest()
@@ -69,7 +69,10 @@ class User extends Authenticatable
     public function rides()
     {
         return $this->hasMany(Ride::class,'rider_id');
-
+    }
+    public function rating()
+    {
+        return $this->hasMany(Rating::class, 'rider_id');
     }
 
 

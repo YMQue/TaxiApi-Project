@@ -3,16 +3,25 @@ namespace App\Events;
 
 use App\Models\Driver;
 use App\Models\Ride;
+use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 
 
 class RideRequest implements ShouldBroadcast
 {
+     private SettingRepositoryInterface $setting;
+    public string $expiresAt;
+
     public function __construct(
         public Ride $ride,
-        public Driver $driver
-    ) {}
+        public Driver $driver,
+    ) {
+        $timeout = (int) app(SettingRepositoryInterface::class)
+        ->get('ride_request_timeout_sec');
+
+    $this->expiresAt = now()->addSeconds($timeout)->toIso8601String();
+    }
 
     public function broadcastOn(): array
     {
@@ -41,8 +50,6 @@ class RideRequest implements ShouldBroadcast
                 'address' => $this->ride->drop_address,
             ],
             'estimated_fare' => $this->ride->estimated_fare,
-            'expires_at' => now()->addSeconds(30)
-               
         ];
     }
 }

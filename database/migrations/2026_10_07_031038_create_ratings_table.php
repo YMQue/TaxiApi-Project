@@ -13,16 +13,16 @@ return new class extends Migration
     {
         Schema::create('ratings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('ride_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('rider_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('ride_id')->constrained('rides')->cascadeOnDelete();
             $table->foreignId('driver_id')->constrained('drivers')->cascadeOnDelete();
+            $table->foreignId('rider_id')->constrained('users')->cascadeOnDelete();
+            $table->enum('rider_rating',[1,2,3,4,5])->nullable();
+            $table->text('rider_comment')->nullable();
+            $table->enum('driver_rating',[1,2,3,4,5])->nullable();
+            $table->text('driver_comment')->nullable();
 
-            $table->unsignedTinyInteger('rider_rating')->nullable();  // driver rating the rider
-            $table->string('rider_comment')->nullable();
-
-            $table->unsignedTinyInteger('driver_rating')->nullable(); // rider rating the driver
-            $table->string('driver_comment')->nullable();
             
+
             $table->timestamps();
         });
     }

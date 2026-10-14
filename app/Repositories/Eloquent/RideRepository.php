@@ -2,10 +2,14 @@
 
 namespace App\Repositories\Eloquent;
 
+use App\Exceptions\BusinessRuleException;
+use App\Exceptions\RatingException;
 use App\Models\CarType;
 use App\Models\Driver;
+use App\Models\Rating;
 use App\Models\ride_status_log;
 use App\Models\Ride;
+use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use App\Repositories\Contracts\RideRepositoryInterface;
 use App\Services\WalletService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -16,10 +20,12 @@ use Illuminate\Validation\ValidationException;
 class RideRepository implements RideRepositoryInterface
 {
     private WalletService $wallet;
+    private SettingRepositoryInterface $setting;
 
-    public function __construct(WalletService $wallet)
+    public function __construct(WalletService $wallet,SettingRepositoryInterface $setting)
     {
         $this->wallet = $wallet;
+        $this->setting = $setting;
     }
 
     //------------Ride\Rider-----------//
@@ -114,7 +120,7 @@ class RideRepository implements RideRepositoryInterface
         if ($data['payment_method'] === 'wallet') {                           // wallet balance check
             if ($wallet['balance'] < $estimate['estimated_fare']) {
                 throw ValidationException::withMessages([
-                    'payment_method' => 'Insufficient wallet balance for this ride.',
+                    'method' => 'Insufficient wallet balance for this ride.',
                 ]);
             }
         }
@@ -148,6 +154,53 @@ class RideRepository implements RideRepositoryInterface
             return $ride;
         });
     }
+
+    public function rate(int $rideId, string $role, int $actorId, int $rating, ?string $comment = null): Rating
+{
+    $isRider = $role === 'rider';
+
+    return DB::transaction(function () use ($rideId, $isRider, $actorId, $rating, $comment) {
+        $ride = Ride::where('id', $rideId)
+            ->where($isRider ? 'rider_id' : 'driver_id', $actorId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $ride) {
+            throw RatingException::notFound();
+        }
+
+        if ($ride->status !== 'completed') {
+            throw RatingException::notCompleted();
+        }
+
+        $record = Rating::firstOrNew(['ride_id' => $ride->id]);
+
+        $ratingCol  = $isRider ? 'rider_rating'  : 'driver_rating';
+        $commentCol = $isRider ? 'rider_comment' : 'driver_comment';
+
+        if ($record->{$ratingCol} !== null) {
+            throw RatingException::alreadyRated();
+        }
+
+        $record->fill([
+            'rider_id'  => $ride->rider_id,
+            'driver_id' => $ride->driver_id,
+            $ratingCol  => $rating,
+            $commentCol => $comment,
+        ])->save();
+
+        if ($isRider) {
+    $avg = Rating::where('driver_id', $ride->driver_id)
+        ->whereNotNull('rider_rating')
+        ->avg('rider_rating');
+
+    Driver::where('id', $ride->driver_id)
+        ->update(['rate' => round($avg, 2)]);
+}
+
+        return $record;
+    });
+}
 
 
 
@@ -185,7 +238,7 @@ class RideRepository implements RideRepositoryInterface
         $key      = "ride:{$ride->id}:excluded_drivers";
         $excluded = Cache::get($key, []);
         $excluded[] = $driverId;
-        Cache::put($key, array_unique($excluded), now()->addMinutes(2));
+        Cache::put($key, array_unique($excluded), now()->addMinutes(10));
 
         $this->log($ride->id, 'driver_rejected', $driverId);
     }
@@ -233,9 +286,11 @@ class RideRepository implements RideRepositoryInterface
         $rider = $ride->rider_id;
         $method = $ride->payment_method;
 
-        $commissionRate = 0.2;
+        $commissionRate = $this->setting->get('commission_rate');
         $fare           = $ride->estimated_fare;
         $finalFare      = $fare - ($fare * $commissionRate);
+
+   
 
         if ($method === 'wallet') {
             $this->wallet->credit($driverId, $finalFare, 'driver', 'Driver earning');
@@ -263,4 +318,91 @@ class RideRepository implements RideRepositoryInterface
             'note'       => "driver_id:{$driverId}",
         ]);
     }
+
+    public function cancelRide(int $rideId, string $by, int $actorId, ?string $reason = null): Ride
+{
+    return DB::transaction(function () use ($rideId, $by, $actorId, $reason) {
+        $ride = Ride::whereKey($rideId)->lockForUpdate()->firstOrFail();
+
+        $owns = $by === 'rider'
+            ? $ride->rider_id === $actorId
+            : $ride->driver_id === $actorId;
+
+        if (! $owns) {
+            throw new BusinessRuleException('Ride not found', 404);
+        }
+
+        $cancellable = $by === 'rider'
+            ? ['searching', 'accepted', 'arrived']
+            : ['accepted', 'arrived'];
+
+        if (! in_array($ride->status, $cancellable, true)) {
+            throw new BusinessRuleException('This ride can no longer be cancelled.', 409);
+        }
+
+        $fee = $this->cancellationFee($ride);
+
+             $charged = 0.0;
+        if ($fee > 0) {
+            $charged = $this->chargeFee($ride, $by, $fee);
+        }
+            
+        if ($by === 'rider') {
+            $ride->update([
+                'status'           => 'cancelled',
+                'cancelled_by'     => 'rider',
+                'cancel_reason'    => $reason,
+                'cancelled_at'     => now(),
+                //'cancellation_fee' => $fee,
+            ]);
+        } else {
+            // driver cancelled: ride goes back to searching
+            $ride->update([
+                'status'           => 'searching',
+                'driver_id'        => null,
+                'accepted_at'      => null,
+                'cancel_reason'    => $reason,
+                //'cancellation_fee' => $fee,
+            ]);
+        }
+
+        // write the RideStatusLog row here, the same way your other methods do
+
+         $ride = $ride->fresh();
+        $ride->cancellation_fee = $charged; // dynamic attribute, not saved
+        return $ride;
+     });
+}
+
+private function cancellationFee(Ride $ride): float
+{
+    if ($ride->status === 'searching') {
+        return 0.0;
+    }
+
+    return (float) $this->setting->get('cancellation_fee', 5);
+}
+
+private function chargeFee(Ride $ride, string $by, float $fee): float
+{
+    $driver = $ride->driver;
+
+    $payerId   = $by === 'rider' ? $ride->rider_id : $driver->user_id;
+    $payerType = $by;
+
+    $balance = (float) $this->wallet->getWallet($payerId, $payerType)->balance;
+    $fee     = min($fee, $balance);
+
+    if ($fee <= 0) {
+        return 0.0;
+    }
+
+    $this->wallet->debit($payerId, $fee, $payerType, "Cancellation fee for ride #{$ride->id}", $ride);
+
+    if ($by === 'rider') {
+        $this->wallet->credit($driver->user_id, $fee, 'driver', "Cancellation compensation for ride #{$ride->id}", $ride);
+    }
+
+    return $fee;
+}
 }

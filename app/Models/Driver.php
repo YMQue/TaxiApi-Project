@@ -67,6 +67,11 @@ class Driver extends Authenticatable
     {
         return $this->hasMany(Ride::class, 'driver_id');
     }
+    public function rating()
+    {
+        return $this->hasMany(Rating::class, 'driver_id');
+    }
+
 
   
 

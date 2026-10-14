@@ -1,6 +1,7 @@
 <?php
 namespace App\Repositories\Eloquent\Admin;
 
+use App\Exceptions\BusinessRuleException;
 use App\Models\TopupRequest;
 use App\Models\User;
 use App\Models\WithdrawalRequest;
@@ -55,10 +56,10 @@ class WalletRepository implements WalletRepositoryInterface
         $topup = TopupRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($topup->status !== 'pending') {
-            abort(409, 'This top-up request has already been processed.');
+            throw new BusinessRuleException('This top-up request has already been processed.', 409);
         }
 
-        $wallet = $this->walletService->credit(
+         $this->walletService->credit(
                     $topup->user_id,
                     (float) $topup->amount,
                     'rider',
@@ -81,7 +82,7 @@ public function rejectTopup(int $id, string $note): TopupRequest
         $topup = TopupRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($topup->status !== 'pending') {
-            abort(409, 'This top-up request has already been processed.');
+            throw new BusinessRuleException('This top-up request has already been processed.', 409);
         }
 
         $topup->update([
@@ -138,10 +139,10 @@ public function approveWithdrawl(int $id, ?string $note = null): WithdrawalReque
         $Withdrawl = WithdrawalRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($Withdrawl->status !== 'pending') {
-            abort(409, 'This Withdrawl request has already been processed.');
+            throw new BusinessRuleException('This withdrawal request has already been processed.', 409);
         }
 
-        $wallet = $this->walletService->debit(
+         $this->walletService->debit(
                     $Withdrawl->driver->user_id,
                     (float) $Withdrawl->amount,
                     'driver',
@@ -155,7 +156,7 @@ public function approveWithdrawl(int $id, ?string $note = null): WithdrawalReque
             'admin_note' => $note,
         ]);
 
-        return $Withdrawl->load('driver');
+        return $Withdrawl->load('driver.user');
     });
 }
 
@@ -165,7 +166,7 @@ public function rejectWithdrawl(int $id, string $note): WithdrawalRequest
         $Withdrawl = WithdrawalRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($Withdrawl->status !== 'pending') {
-            abort(409, 'This Withdrawl request has already been processed.');
+           throw new BusinessRuleException('This withdrawal request has already been processed.', 409);
         }
 
         $Withdrawl->update([
@@ -173,7 +174,7 @@ public function rejectWithdrawl(int $id, string $note): WithdrawalRequest
             'admin_note' => $note,
         ]);
 
-        return $Withdrawl->load('driver');
+        return $Withdrawl->load('driver.user');
     });
 
 }
@@ -189,11 +190,10 @@ public function manualAdjust(
     DB::transaction(function () use ($userId, $userType, $type, $amount, $reason, $adminId) {
         $description = "Manual adjustment by admin #{$adminId}: {$reason}";
  
-        if ($type === 'credit') {
-            $this->walletService->credit($userId, $amount,$userType, $description);
-        } else {
-            $this->walletService->debit($userId, $amount,$userType, $description);
-        }
+        match ($type) {
+    'credit' => $this->walletService->credit($userId,$amount,$userType,$description),
+    'debit'  => $this->walletService->debit($userId,$amount,$userType,$description),
+};
     });
 }
 }
