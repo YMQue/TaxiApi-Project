@@ -141,20 +141,7 @@ class AuthController extends Controller
             'data' => $user->fresh()->only(['id', 'name', 'phone_number', 'email', 'avatar'])
         ]);
     }
-//     public function updateFcmToken(Request $request)
-// {
-//     $request->validate([
-//         'fcm_token' => 'required|string|max:255',
-//     ]);
-
-//     $user = $request->user();
-//     $this->userRepository->update($user, ['fcm_token' => $request->fcm_token]);
-
-//     return response()->json([
-//         'success' => true,
-//         'message' => 'FCM token updated successfully.',
-//     ]);
-// }
+     
 
 }
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,7 +27,18 @@ Route::middleware('auth:sanctum')
         Route::post('logout', 'logout');
         Route::get('me', 'me');
         Route::put('profile', 'updateProfile');
-        Route::post('fcm-token', 'updateFcmToken');
+        Route::post('fcm-token', [NotificationController::class, 'storeFcmToken']);
+
+    });
+    
+
+    Route::middleware('auth:sanctum')
+    ->controller(NotificationController::class)
+    ->prefix('notifications')
+    ->group(function () {
+        Route::get('/', 'index');
+        Route::post('read-all', 'markAllAsRead');
+        Route::post('{id}/read', 'markAsRead')->whereNumber('id');
     });
 
 /*

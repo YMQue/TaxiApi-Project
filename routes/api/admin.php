@@ -16,13 +16,13 @@ Route::prefix('admin')->group(function () {
     Route::middleware(['auth:admin'])->group(function () {
         Route::post('logout', [AdminAuthController::class, 'logout']);
             //---------Wallet
-        Route::get('wallet/topup-requests', [WalletController::class, 'topup_index']);
-        Route::post('wallet/topup-requests/{id}/approve', [WalletController::class, 'topup_approve'])->whereNumber('id');
-        Route::post('wallet/topup-requests/{id}/reject', [WalletController::class, 'topup_reject'])->whereNumber('id');
+        Route::get('wallet/topup-requests', [WalletController::class, 'topupIndex']);
+        Route::post('wallet/topup-requests/{id}/approve', [WalletController::class, 'topupApprove'])->whereNumber('id');
+        Route::post('wallet/topup-requests/{id}/reject', [WalletController::class, 'topupReject'])->whereNumber('id');
 
-        Route::get('wallet/withdrawl-requests', [WalletController::class, 'Withdrawl_index']);
-        Route::post('wallet/withdrawl-requests/{id}/approve', [WalletController::class, 'Withdrawl_approve'])->whereNumber('id');
-        Route::post('wallet/withdrawl-requests/{id}/reject', [WalletController::class, 'Withdrawl_reject'])->whereNumber('id');
+        Route::get('wallet/withdrawl-requests', [WalletController::class, 'withdrawIndex']);
+        Route::post('wallet/withdrawl-requests/{id}/approve', [WalletController::class, 'withdrawApprove'])->whereNumber('id');
+        Route::post('wallet/withdrawl-requests/{id}/reject', [WalletController::class, 'withdrawReject'])->whereNumber('id');
 
         Route::post('wallet/manual-adjust', [WalletController::class, 'manualAdjust']);
 
@@ -41,7 +41,7 @@ Route::prefix('admin')->group(function () {
                 //---------Pricing
         Route::get('settings',[SettingController::class,'index']);
         Route::put('settings',[SettingController::class,'update']);
-
+        
 
 
 

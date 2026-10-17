@@ -8,37 +8,30 @@ use NotificationChannels\Fcm\FcmChannel;
 use NotificationChannels\Fcm\FcmMessage;
 use NotificationChannels\Fcm\Resources\Notification as FcmNotification;
 
-class PushNotification extends Notification
+class DynamicPushNotification extends Notification
 {
     use Queueable;
 
     protected $title;
     protected $body;
 
-    public function __construct($title, $body)
+    public function __construct($title, $body, $data = [])
     {
         $this->title = $title;
         $this->body = $body;
     }
 
-    /**
-     * Get the notification's delivery channels.
-     */
-    public function via($notifiable): array
+    public function via($notifiable)
     {
         return [FcmChannel::class];
     }
 
-    /**
-     * Get the FCM representation of the notification.
-     */
     public function toFcm($notifiable): FcmMessage
-    {
-        return (new FcmMessage(
-            notification: new FcmNotification(
-                title: $this->title,
-                body: $this->body
-            )
+{
+    return FcmMessage::create()
+        ->notification(new FcmNotification(
+            title: $this->title,
+            body: $this->body,
         ));
-    }
+}
 }

@@ -11,7 +11,7 @@
         "doctrine/dbal": "^4.4",
         "iroid/laravel-haversine": "@dev",
         "kreait/firebase-php": "^8.5",
-        "laravel-notification-channels/fcm": "^6.1",
+        "laravel-notification-channels/fcm": "^6.2",
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",

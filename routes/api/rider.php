@@ -21,4 +21,5 @@ Route::middleware(['auth:sanctum', 'role:rider'])->prefix('rider')->group(functi
         Route::post('{id}/cancel','cancel')->whereNumber('id');
 
     });
+    
 });

@@ -5,14 +5,17 @@ use App\Exceptions\BusinessRuleException;
 use App\Models\TopupRequest;
 use App\Models\User;
 use App\Models\WithdrawalRequest;
+use App\Notifications\DynamicPushNotification;
 use App\Repositories\Contracts\Admin\WalletRepositoryInterface;
+use App\Services\NotificationService;
 use App\Services\WalletService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class WalletRepository implements WalletRepositoryInterface
 {
-    public function __construct(protected WalletService $walletService)
+    public function __construct(protected WalletService $walletService ,  protected NotificationService $notifications)
 {
 }
     public function Topup_paginateWithFilters(array $filters, int $perPage = 15): LengthAwarePaginator
@@ -51,34 +54,34 @@ class WalletRepository implements WalletRepositoryInterface
 
     public function approveTopup(int $id, ?string $note = null): TopupRequest
 {
-    return DB::transaction(function () use ($id, $note) {
-        // lock the row so a double click / two admins can't credit twice
+    $topup = DB::transaction(function () use ($id, $note) {
         $topup = TopupRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($topup->status !== 'pending') {
             throw new BusinessRuleException('This top-up request has already been processed.', 409);
         }
 
-         $this->walletService->credit(
-                    $topup->user_id,
-                    (float) $topup->amount,
-                    'rider',
-                    'Wallet top-up',
-                    $topup
-                );
-        
+        $this->walletService->credit($topup->user_id, (float) $topup->amount, 'rider', 'Wallet top-up', $topup);
 
-        $topup->update([
-            'status'     => 'approved',
-            'admin_note' => $note,
-        ]);
+        $topup->update(['status' => 'approved', 'admin_note' => $note]);
 
         return $topup->load('user');
     });
+
+     $this->notifications->send(
+        $topup->user,
+        'payment',
+        'Top-up approved',
+        "Your top-up of {$topup->amount} has been added to your wallet.",
+        ['topup_id' => $topup->id, 'status' => 'approved'],
+    );
+
+    return $topup;
 }
+
 public function rejectTopup(int $id, string $note): TopupRequest
 {
-    return DB::transaction(function () use ($id, $note) {
+      $topup = DB::transaction(function () use ($id, $note) {
         $topup = TopupRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($topup->status !== 'pending') {
@@ -92,6 +95,15 @@ public function rejectTopup(int $id, string $note): TopupRequest
 
         return $topup->load('user');
     });
+     $this->notifications->send(
+        $topup->user,
+        'payment',
+        'Top-up rejected',
+        "Your top-up request was rejected. Reason: {$note}",
+        ['topup_id' => $topup->id, 'status' => 'rejected'],
+    );
+
+    return $topup;
 }
 public function Withdrawl_paginateWithFilters(array $filters, int $perPage = 15): LengthAwarePaginator
 {
@@ -134,7 +146,7 @@ public function Withdrawl_paginateWithFilters(array $filters, int $perPage = 15)
 
 public function approveWithdrawl(int $id, ?string $note = null): WithdrawalRequest
 {
-    return DB::transaction(function () use ($id, $note) {
+    $withdrawal = DB::transaction(function () use ($id, $note) {
         // lock the row so a double click / two admins can't credit twice
         $Withdrawl = WithdrawalRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
@@ -158,11 +170,21 @@ public function approveWithdrawl(int $id, ?string $note = null): WithdrawalReque
 
         return $Withdrawl->load('driver.user');
     });
+
+    $this->notifications->send(
+        $withdrawal->driver->user,
+        'payment',
+        'Withdrawal approved',
+        "Your withdrawal of {$withdrawal->amount} has been approved.",
+        ['withdrawal_id' => $withdrawal->id, 'status' => 'approved'],
+    );
+
+    return $withdrawal;
 }
 
 public function rejectWithdrawl(int $id, string $note): WithdrawalRequest
 {
-    return DB::transaction(function () use ($id, $note) {
+    $Withdrawl = DB::transaction(function () use ($id, $note) {
         $Withdrawl = WithdrawalRequest::whereKey($id)->lockForUpdate()->firstOrFail();
 
         if ($Withdrawl->status !== 'pending') {
@@ -176,6 +198,15 @@ public function rejectWithdrawl(int $id, string $note): WithdrawalRequest
 
         return $Withdrawl->load('driver.user');
     });
+     $this->notifications->send(
+        $Withdrawl->driver->user,
+        'payment',
+        'Withdrawal rejected',
+        "Your withdrawal request was rejected. Reason: {$note}",
+        ['withdrawal_id' => $Withdrawl->id, 'status' => 'rejected'],
+    );
+
+    return $Withdrawl;
 
 }
 
@@ -196,6 +227,16 @@ public function manualAdjust(
 };
     });
 }
+
+
+
+
+
+
+
+
+
+
 }
 
     

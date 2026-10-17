@@ -29,4 +29,5 @@ Route::middleware(['auth:sanctum', 'role:driver'])->prefix('driver')->group(func
         Route::post('withdraw', 'withdraw');
         Route::get('withdraw-status', 'withdraw_status');
     });
+    
 });

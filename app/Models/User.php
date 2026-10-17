@@ -53,7 +53,7 @@ class User extends Authenticatable
         return $this->hasMany(TopupRequest::class);
     }
 
-    public function notifications()
+    public function Notifications()
     {
         return $this->morphMany(Notification::class, 'notifiable');
     }
@@ -74,6 +74,7 @@ class User extends Authenticatable
     {
         return $this->hasMany(Rating::class, 'rider_id');
     }
+   
 
 
 

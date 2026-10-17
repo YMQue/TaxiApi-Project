@@ -11,6 +11,7 @@ use App\Models\ride_status_log;
 use App\Models\Ride;
 use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use App\Repositories\Contracts\RideRepositoryInterface;
+use App\Services\NotificationService;
 use App\Services\WalletService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
@@ -21,11 +22,14 @@ class RideRepository implements RideRepositoryInterface
 {
     private WalletService $wallet;
     private SettingRepositoryInterface $setting;
+    private NotificationService $notifications;
 
-    public function __construct(WalletService $wallet,SettingRepositoryInterface $setting)
+
+    public function __construct(WalletService $wallet, SettingRepositoryInterface $setting, NotificationService $notifications)
     {
         $this->wallet = $wallet;
         $this->setting = $setting;
+        $this->notifications = $notifications;
     }
 
     //------------Ride\Rider-----------//
@@ -97,15 +101,15 @@ class RideRepository implements RideRepositoryInterface
 
     public function createRide(int $riderId, array $data): Ride
     {
-         $activeRide = Ride::where('rider_id', $riderId)
-        ->whereNotIn('status', ['completed', 'cancelled'])
-        ->exists();
+        $activeRide = Ride::where('rider_id', $riderId)
+            ->whereNotIn('status', ['completed', 'cancelled'])
+            ->exists();
 
-    if ($activeRide) {                    // التحقق من ان كان الراكب عنده رحلة شغالة
-        throw ValidationException::withMessages([
-            'ride' => 'You already have an active ride. Please complete or cancel it before requesting a new one.',
-        ]);
-    }
+        if ($activeRide) {                    // التحقق من ان كان الراكب عنده رحلة شغالة
+            throw ValidationException::withMessages([
+                'ride' => 'You already have an active ride. Please complete or cancel it before requesting a new one.',
+            ]);
+        }
         $estimate = collect($this->estimateFare($data))
             ->firstWhere('car_type_id', $data['car_type_id']);
 
@@ -156,51 +160,51 @@ class RideRepository implements RideRepositoryInterface
     }
 
     public function rate(int $rideId, string $role, int $actorId, int $rating, ?string $comment = null): Rating
-{
-    $isRider = $role === 'rider';
+    {
+        $isRider = $role === 'rider';
 
-    return DB::transaction(function () use ($rideId, $isRider, $actorId, $rating, $comment) {
-        $ride = Ride::where('id', $rideId)
-            ->where($isRider ? 'rider_id' : 'driver_id', $actorId)
-            ->lockForUpdate()
-            ->first();
+        return DB::transaction(function () use ($rideId, $isRider, $actorId, $rating, $comment) {
+            $ride = Ride::where('id', $rideId)
+                ->where($isRider ? 'rider_id' : 'driver_id', $actorId)
+                ->lockForUpdate()
+                ->first();
 
-        if (! $ride) {
-            throw RatingException::notFound();
-        }
+            if (! $ride) {
+                throw RatingException::notFound();
+            }
 
-        if ($ride->status !== 'completed') {
-            throw RatingException::notCompleted();
-        }
+            if ($ride->status !== 'completed') {
+                throw RatingException::notCompleted();
+            }
 
-        $record = Rating::firstOrNew(['ride_id' => $ride->id]);
+            $record = Rating::firstOrNew(['ride_id' => $ride->id]);
 
-        $ratingCol  = $isRider ? 'rider_rating'  : 'driver_rating';
-        $commentCol = $isRider ? 'rider_comment' : 'driver_comment';
+            $ratingCol  = $isRider ? 'rider_rating'  : 'driver_rating';
+            $commentCol = $isRider ? 'rider_comment' : 'driver_comment';
 
-        if ($record->{$ratingCol} !== null) {
-            throw RatingException::alreadyRated();
-        }
+            if ($record->{$ratingCol} !== null) {
+                throw RatingException::alreadyRated();
+            }
 
-        $record->fill([
-            'rider_id'  => $ride->rider_id,
-            'driver_id' => $ride->driver_id,
-            $ratingCol  => $rating,
-            $commentCol => $comment,
-        ])->save();
+            $record->fill([
+                'rider_id'  => $ride->rider_id,
+                'driver_id' => $ride->driver_id,
+                $ratingCol  => $rating,
+                $commentCol => $comment,
+            ])->save();
 
-        if ($isRider) {
-    $avg = Rating::where('driver_id', $ride->driver_id)
-        ->whereNotNull('rider_rating')
-        ->avg('rider_rating');
+            if ($isRider) {
+                $avg = Rating::where('driver_id', $ride->driver_id)
+                    ->whereNotNull('rider_rating')
+                    ->avg('rider_rating');
 
-    Driver::where('id', $ride->driver_id)
-        ->update(['rate' => round($avg, 2)]);
-}
+                Driver::where('id', $ride->driver_id)
+                    ->update(['rate' => round($avg, 2)]);
+            }
 
-        return $record;
-    });
-}
+            return $record;
+        });
+    }
 
 
 
@@ -212,7 +216,7 @@ class RideRepository implements RideRepositoryInterface
     //------Ride/Driver-------//
     public function acceptRide(int $rideId, int $driverId): Ride
     {
-        return DB::transaction(function () use ($rideId, $driverId) {
+        $ride = DB::transaction(function () use ($rideId, $driverId) {
             // lock the row so two drivers can't accept the same ride
             $ride = Ride::where('id', $rideId)
                 ->where('status', 'searching')
@@ -229,6 +233,17 @@ class RideRepository implements RideRepositoryInterface
 
             return $ride;
         });
+        $ride->load('rider', 'driver.user');
+
+        $this->notifications->send(
+            $ride->rider,
+            'ride_accepted',
+            'Driver on the way',
+            "{$ride->driver->user->name} accepted your ride and is heading to you.",
+            ['ride_id' => $ride->id],
+        );
+
+        return $ride;
     }
 
     public function rejectRide(int $rideId, int $driverId): void
@@ -256,6 +271,15 @@ class RideRepository implements RideRepositoryInterface
         ]);
 
         $this->log($ride->id, 'driver_arrived', $driverId);
+
+        $this->notifications->send(
+        $ride->rider,
+        'ride_arrived',
+        'Your driver has arrived',
+        'Your driver is waiting at the pickup point.',
+        ['ride_id' => $ride->id],
+    );
+
 
         return $ride;
     }
@@ -290,7 +314,7 @@ class RideRepository implements RideRepositoryInterface
         $fare           = $ride->estimated_fare;
         $finalFare      = $fare - ($fare * $commissionRate);
 
-   
+
 
         if ($method === 'wallet') {
             $this->wallet->credit($driverId, $finalFare, 'driver', 'Driver earning');
@@ -321,7 +345,7 @@ class RideRepository implements RideRepositoryInterface
 
     public function cancelRide(int $rideId, string $by, int $actorId, ?string $reason = null): Ride
 {
-    return DB::transaction(function () use ($rideId, $by, $actorId, $reason) {
+    $ride = DB::transaction(function () use ($rideId, $by, $actorId, $reason) {
         $ride = Ride::whereKey($rideId)->lockForUpdate()->firstOrFail();
 
         $owns = $by === 'rider'
@@ -340,38 +364,66 @@ class RideRepository implements RideRepositoryInterface
             throw new BusinessRuleException('This ride can no longer be cancelled.', 409);
         }
 
-        $fee = $this->cancellationFee($ride);
+        $fee     = $this->cancellationFee($ride);
+        $charged = $fee > 0 ? $this->chargeFee($ride, $by, $fee) : 0.0;
 
-             $charged = 0.0;
-        if ($fee > 0) {
-            $charged = $this->chargeFee($ride, $by, $fee);
-        }
-            
         if ($by === 'rider') {
             $ride->update([
-                'status'           => 'cancelled',
-                'cancelled_by'     => 'rider',
-                'cancel_reason'    => $reason,
-                'cancelled_at'     => now(),
-                //'cancellation_fee' => $fee,
+                'status'        => 'cancelled',
+                'cancelled_by'  => 'rider',
+                'cancel_reason' => $reason,
+                'cancelled_at'  => now(),
             ]);
+            $logStatus = 'cancelled';
         } else {
-            // driver cancelled: ride goes back to searching
+            // driver cancelled
             $ride->update([
-                'status'           => 'searching',
-                'driver_id'        => null,
-                'accepted_at'      => null,
-                'cancel_reason'    => $reason,
-                //'cancellation_fee' => $fee,
+                'status'        => 'cancelled',
+                'driver_id'     => $actorId,
+                'accepted_at'   => null,
+                'cancel_reason' => $reason,
             ]);
+            $logStatus = 'driver_cancelled';
         }
 
-        // write the RideStatusLog row here, the same way your other methods do
+        ride_status_log::create([
+            'ride_id'    => $ride->id,
+            'status'     => $logStatus,
+            'changed_by' => $by,
+            'note'       => $reason,
+        ]);
 
-         $ride = $ride->fresh();
+        $ride = $ride->fresh();
         $ride->cancellation_fee = $charged; // dynamic attribute, not saved
+
         return $ride;
-     });
+    });
+
+    // transaction committed: now notify the other party
+    $ride->load('rider', 'driver.user');
+    $fee = (float) $ride->cancellation_fee;
+
+    if ($by === 'rider') {
+        // driver_id is still set, so tell the driver (nobody if the ride was still searching)
+        if ($ride->driver) {
+            $this->notifications->send(
+                $ride->driver->user,
+                'ride_cancelled',
+                'Ride cancelled',
+                'The rider cancelled the ride.'
+            );
+        }
+    } else {
+        $this->notifications->send(
+            $ride->rider,
+            'ride_cancelled',
+            'Driver cancelled',
+            'Your driver cancelled.',
+            ['ride_id' => $ride->id, 'status' => $ride->status],
+        );
+    }
+
+    return $ride;
 }
 
 private function cancellationFee(Ride $ride): float
