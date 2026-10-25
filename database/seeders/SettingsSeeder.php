@@ -2,7 +2,7 @@
 
 namespace Database\Seeders;
 
-use App\Models\Settings;
+use App\Models\Setting;
 use Illuminate\Database\Seeder;
 
 class SettingsSeeder extends Seeder
@@ -26,7 +26,7 @@ class SettingsSeeder extends Seeder
                 'value'       => '30',
             ],
             [
-                'key'         => 'cancellation_fee_amount',
+                'key'         => 'cancellation_fee',
                 'value'       => '5.00',
             ],
             [
@@ -48,12 +48,11 @@ class SettingsSeeder extends Seeder
         ];
 
         foreach ($settings as $setting) {
-            // استخدام updateOrCreate لتجنب التكرار عند تشغيل السيدر أكثر من مرة
-            Settings::updateOrCreate(
-                ['key' => $setting['key']],
-                $setting
-            );
-        }
-    }
-
+    Setting::firstOrCreate(
+        ['key' => $setting['key']],
+        ['value' => $setting['value']]
+    );
 }
+}
+}
+

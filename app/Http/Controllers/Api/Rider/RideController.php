@@ -23,9 +23,8 @@ class RideController extends Controller
 
     public function estimate(EstimateRideRequest $request): JsonResponse
     {
-        $estimate = $this->rides->estimateFare($request->validated());
-
-        return $this->success('Fare estimates calculated successfully', $estimate);
+        $estimates = $this->rides->estimateFare($request->validated(), $request->user()->id);
+        return $this->success('Fare estimates calculated successfully', $estimates);
     }
 
     public function request(RequestRideRequest $request): JsonResponse

@@ -18,6 +18,7 @@ class EstimateRideRequest extends FormRequest
             'pickup_lng' => 'required|numeric|between:-180,180',
             'drop_lat'   => 'required|numeric|between:-90,90',
             'drop_lng'   => 'required|numeric|between:-180,180',
+            'promo_code' => ['nullable', 'string', 'max:50'],
         ];
     }
 }

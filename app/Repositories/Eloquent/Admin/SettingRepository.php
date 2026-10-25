@@ -5,15 +5,16 @@ namespace App\Repositories\Eloquent\Admin;
 use App\Models\Setting;
 use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class SettingRepository implements SettingRepositoryInterface
 {
-    private const CACHE_KEY = 'settings.row';
+    private const CACHE_KEY = 'settings.all';
 
     public function all(): array
     {
         return Cache::rememberForever(self::CACHE_KEY, fn () =>
-            Setting::firstOrCreate([])->only((new Setting)->getFillable())
+            Setting::pluck('value', 'key')->all()
         );
     }
 
@@ -24,7 +25,11 @@ class SettingRepository implements SettingRepositoryInterface
 
     public function update(array $values): array
     {
-        Setting::firstOrCreate([])->update($values);
+        DB::transaction(function () use ($values) {
+            foreach ($values as $key => $value) {
+                Setting::updateOrCreate(['key' => $key], ['value' => $value]);
+            }
+        });
 
         Cache::forget(self::CACHE_KEY);
 

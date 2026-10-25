@@ -12,6 +12,7 @@ use App\Http\Requests\RejectRequest;
 use App\Http\Resources\Admin\TopupRequestResource;
 use App\Http\Resources\Admin\WithdrawRequestResource;
 use App\Repositories\Contracts\Admin\WalletRepositoryInterface;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 
 class WalletController extends Controller
@@ -89,4 +90,11 @@ class WalletController extends Controller
 
         return $this->success('Wallet adjusted successfully.', [], 201);
     }
+
+    public function show(WalletService $wallets)
+{
+    return response()->json(
+        $wallets->getBalance(auth('admin')->id(), 'admin')
+    );
+}
 }

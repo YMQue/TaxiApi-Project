@@ -3,6 +3,7 @@
 namespace App\Repositories\Eloquent;
 
 use App\Exceptions\BusinessRuleException;
+use App\Exceptions\PromoCodeException;
 use App\Exceptions\RatingException;
 use App\Models\CarType;
 use App\Models\Driver;
@@ -12,6 +13,7 @@ use App\Models\Ride;
 use App\Repositories\Contracts\Admin\SettingRepositoryInterface;
 use App\Repositories\Contracts\RideRepositoryInterface;
 use App\Services\NotificationService;
+use App\Services\PromoCodeService;
 use App\Services\WalletService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
@@ -23,17 +25,20 @@ class RideRepository implements RideRepositoryInterface
     private WalletService $wallet;
     private SettingRepositoryInterface $setting;
     private NotificationService $notifications;
+    private PromoCodeService $promos;
 
 
-    public function __construct(WalletService $wallet, SettingRepositoryInterface $setting, NotificationService $notifications)
+
+    public function __construct(WalletService $wallet, SettingRepositoryInterface $setting, NotificationService $notifications, PromoCodeService $promos)
     {
         $this->wallet = $wallet;
         $this->setting = $setting;
         $this->notifications = $notifications;
+        $this->promos = $promos;
     }
 
     //------------Ride\Rider-----------//
-    public function estimateFare(array $data)
+    public function estimateFare(array $data, ?int $riderId = null)
     {
         $distanceKm = $this->calculateDistanceKm(
             $data['pickup_lat'],
@@ -44,13 +49,16 @@ class RideRepository implements RideRepositoryInterface
         $avgSpeedKmPerMinute = 0.5;
         $durationMinutes = $distanceKm > 0 ? $distanceKm / $avgSpeedKmPerMinute : 1;
 
+        $promoCode = $data['promo_code'] ?? null;
+
         $cartype = CarType::query()->get();
-        $estimates = $cartype->map(function (CarType $cartype) use ($distanceKm, $durationMinutes) {
+        $estimates = $cartype->map(function (CarType $cartype) use ($distanceKm, $durationMinutes, $promoCode, $riderId) {
             $fare = $cartype->base_fare
                 + ($distanceKm * $cartype->per_km)
                 + ($durationMinutes * $cartype->per_min);
             $fare = max($fare, $cartype->min_fare);
-            return [
+
+            $estimate = [
                 'car_type_id'      => $cartype->id,
                 'name'             => $cartype->name,
                 'icon'             => $cartype->icon,
@@ -59,7 +67,27 @@ class RideRepository implements RideRepositoryInterface
                 'duration_minutes' => round($durationMinutes),
                 'estimated_fare'   => round($fare, 2),
             ];
+
+            // promo preview (only when a code and a rider are given)
+            if ($promoCode && $riderId) {
+                try {
+                    $promo = $this->promos->validate($promoCode, $riderId, $estimate['estimated_fare']);
+
+                    $estimate['promo_applied']       = true;
+                    $estimate['discount']            = $promo['discount'];
+                    $estimate['fare_after_discount'] = $promo['fare_after'];
+                    $estimate['promo_message']       = null;
+                } catch (PromoCodeException $e) {
+                    $estimate['promo_applied']       = false;
+                    $estimate['discount']            = 0;
+                    $estimate['fare_after_discount'] = $estimate['estimated_fare'];
+                    $estimate['promo_message']       = $e->getMessage();
+                }
+            }
+
+            return $estimate;
         });
+
         return $estimates->toArray();
     }
 
@@ -118,11 +146,32 @@ class RideRepository implements RideRepositoryInterface
                 'car_type_id' => 'Selected car type is not available for this trip.',
             ]);
         }
+        // ---- promo ----
+        $promoCodeId = null;
+        $discount    = 0.0;
+
+        if (! empty($data['promo_code'])) {
+            try {
+                $promo = $this->promos->validate(
+                    $data['promo_code'],
+                    $riderId,
+                    (float) $estimate['estimated_fare']
+                );
+            } catch (PromoCodeException $e) {
+                throw ValidationException::withMessages(['promo_code' => $e->getMessage()]);
+            }
+
+            $promoCodeId = $promo['promo_code_id'];
+            $discount    = $promo['discount'];
+        }
+
+        $amountToPay = (float) $estimate['estimated_fare'] - $discount;
+
 
         $wallet = $this->wallet->getBalance($riderId, 'rider');
 
         if ($data['payment_method'] === 'wallet') {                           // wallet balance check
-            if ($wallet['balance'] < $estimate['estimated_fare']) {
+            if ($wallet['balance'] < $amountToPay) {
                 throw ValidationException::withMessages([
                     'method' => 'Insufficient wallet balance for this ride.',
                 ]);
@@ -130,10 +179,11 @@ class RideRepository implements RideRepositoryInterface
         }
 
 
-        return DB::transaction(function () use ($riderId, $data, $estimate) {
+        return DB::transaction(function () use ($riderId, $data, $estimate, $promoCodeId) {
             $ride = Ride::create([
                 'rider_id'       => $riderId,
                 'car_type_id'    => $data['car_type_id'],
+                'promo_code_id'  => $promoCodeId,
                 'status'         => 'searching',
 
                 'pickup_lat'     => $data['pickup_lat'],
@@ -273,12 +323,12 @@ class RideRepository implements RideRepositoryInterface
         $this->log($ride->id, 'driver_arrived', $driverId);
 
         $this->notifications->send(
-        $ride->rider,
-        'ride_arrived',
-        'Your driver has arrived',
-        'Your driver is waiting at the pickup point.',
-        ['ride_id' => $ride->id],
-    );
+            $ride->rider,
+            'ride_arrived',
+            'Your driver has arrived',
+            'Your driver is waiting at the pickup point.',
+            ['ride_id' => $ride->id],
+        );
 
 
         return $ride;
@@ -301,37 +351,68 @@ class RideRepository implements RideRepositoryInterface
         return $ride;
     }
 
-    public function completeRide(int $rideId, int $driverId): Ride
-    {
-        $ride = Ride::where('id', $rideId)
+   public function completeRide(int $rideId, int $driverId): Ride
+{
+    return DB::transaction(function () use ($rideId, $driverId) {
+        $ride = Ride::with('driver')
+            ->where('id', $rideId)
             ->where('driver_id', $driverId)
             ->where('status', 'in_progress')
+            ->lockForUpdate()
             ->firstOrFail();
-        $rider = $ride->rider_id;
-        $method = $ride->payment_method;
 
-        $commissionRate = $this->setting->get('commission_rate');
-        $fare           = $ride->estimated_fare;
-        $finalFare      = $fare - ($fare * $commissionRate);
+        $fare      = (float) $ride->estimated_fare;
+        $discount  = $this->promos->applyToRide($ride, $fare);
+        $riderPays = round($fare - $discount, 2);
 
+        $commissionRate = (float) $this->setting->get('commission_rate');
+        $commission     = round($fare * $commissionRate, 2);
+        $driverEarning  = round($fare - $commission, 2);
 
-
-        if ($method === 'wallet') {
-            $this->wallet->credit($driverId, $finalFare, 'driver', 'Driver earning');
-            $this->wallet->debit($rider, $fare, 'rider', 'Ride Payment');
-        }
-
+        $this->settlePayment($ride, $riderPays, $driverEarning);
 
         $ride->update([
-            'status'     => 'completed',
-            'final_fare' => $finalFare,
-            'ended_at'   => now(),
+            'status'            => 'completed',
+            'final_fare'        => $riderPays,
+            'commission_amount' => $commission,
+            'driver_earning'    => $driverEarning,
+            'ended_at'          => now(),
         ]);
 
         $this->log($ride->id, 'Ride_Completed', $driverId);
 
         return $ride;
+    });
+}
+
+private function settlePayment(Ride $ride, float $riderPays, float $driverEarning): void
+{
+    $driverUserId = $ride->driver->user_id;
+    $platformNet  = round($riderPays - $driverEarning, 2); // commission minus promo discount
+
+    if ($ride->payment_method === 'wallet') {
+        if ($riderPays > 0) {
+            $this->wallet->debit($ride->rider_id, $riderPays, 'rider', "Payment for ride #{$ride->id}", $ride, 'ride_payment');
+        }
+        if ($driverEarning > 0) {
+            $this->wallet->credit($driverUserId, $driverEarning, 'driver', "Earning for ride #{$ride->id}", $ride, 'ride_earning');
+        }
+    } else {
+        // cash: the driver holds $riderPays, but is owed $driverEarning, so they settle the difference
+        if ($platformNet > 0) {
+            $this->wallet->debit($driverUserId, $platformNet, 'driver', "Commission for ride #{$ride->id}", $ride, 'commission', allowNegative: true);
+        } elseif ($platformNet < 0) {
+            $this->wallet->credit($driverUserId, abs($platformNet), 'driver', "Promo compensation for ride #{$ride->id}", $ride, 'promo_compensation');
+        }
     }
+
+    // platform side, the same in both payment methods
+    if ($platformNet > 0) {
+        $this->wallet->creditSystem($platformNet, "Commission for ride #{$ride->id}", $ride);
+    } elseif ($platformNet < 0) {
+        $this->wallet->debitSystem(abs($platformNet), "Promo discount for ride #{$ride->id}", $ride);
+    }
+}
 
     private function log(int $rideId, string $status, int $driverId): void
     {
@@ -344,98 +425,98 @@ class RideRepository implements RideRepositoryInterface
     }
 
     public function cancelRide(int $rideId, string $by, int $actorId, ?string $reason = null): Ride
-{
-    $ride = DB::transaction(function () use ($rideId, $by, $actorId, $reason) {
-        $ride = Ride::whereKey($rideId)->lockForUpdate()->firstOrFail();
+    {
+        $ride = DB::transaction(function () use ($rideId, $by, $actorId, $reason) {
+            $ride = Ride::whereKey($rideId)->lockForUpdate()->firstOrFail();
 
-        $owns = $by === 'rider'
-            ? $ride->rider_id === $actorId
-            : $ride->driver_id === $actorId;
+            $owns = $by === 'rider'
+                ? $ride->rider_id === $actorId
+                : $ride->driver_id === $actorId;
 
-        if (! $owns) {
-            throw new BusinessRuleException('Ride not found', 404);
-        }
+            if (! $owns) {
+                throw new BusinessRuleException('Ride not found', 404);
+            }
 
-        $cancellable = $by === 'rider'
-            ? ['searching', 'accepted', 'arrived']
-            : ['accepted', 'arrived'];
+            $cancellable = $by === 'rider'
+                ? ['searching', 'accepted', 'arrived']
+                : ['accepted', 'arrived'];
 
-        if (! in_array($ride->status, $cancellable, true)) {
-            throw new BusinessRuleException('This ride can no longer be cancelled.', 409);
-        }
+            if (! in_array($ride->status, $cancellable, true)) {
+                throw new BusinessRuleException('This ride can no longer be cancelled.', 409);
+            }
 
-        $fee     = $this->cancellationFee($ride);
-        $charged = $fee > 0 ? $this->chargeFee($ride, $by, $fee) : 0.0;
+            $fee     = $this->cancellationFee($ride);
+            $charged = $fee > 0 ? $this->chargeFee($ride, $by, $fee) : 0.0;
+
+            if ($by === 'rider') {
+                $ride->update([
+                    'status'        => 'cancelled',
+                    'cancelled_by'  => 'rider',
+                    'cancel_reason' => $reason,
+                    'cancelled_at'  => now(),
+                ]);
+                $logStatus = 'cancelled';
+            } else {
+                // driver cancelled
+                $ride->update([
+                    'status'        => 'cancelled',
+                    'driver_id'     => $actorId,
+                    'accepted_at'   => null,
+                    'cancel_reason' => $reason,
+                ]);
+                $logStatus = 'driver_cancelled';
+            }
+
+            ride_status_log::create([
+                'ride_id'    => $ride->id,
+                'status'     => $logStatus,
+                'changed_by' => $by,
+                'note'       => $reason,
+            ]);
+
+            $ride = $ride->fresh();
+            $ride->cancellation_fee = $charged; // dynamic attribute, not saved
+
+            return $ride;
+        });
+
+        // transaction committed: now notify the other party
+        $ride->load('rider', 'driver.user');
+        $fee = (float) $ride->cancellation_fee;
 
         if ($by === 'rider') {
-            $ride->update([
-                'status'        => 'cancelled',
-                'cancelled_by'  => 'rider',
-                'cancel_reason' => $reason,
-                'cancelled_at'  => now(),
-            ]);
-            $logStatus = 'cancelled';
+            // driver_id is still set, so tell the driver (nobody if the ride was still searching)
+            if ($ride->driver) {
+                $this->notifications->send(
+                    $ride->driver->user,
+                    'ride_cancelled',
+                    'Ride cancelled',
+                    'The rider cancelled the ride.'
+                );
+            }
         } else {
-            // driver cancelled
-            $ride->update([
-                'status'        => 'cancelled',
-                'driver_id'     => $actorId,
-                'accepted_at'   => null,
-                'cancel_reason' => $reason,
-            ]);
-            $logStatus = 'driver_cancelled';
-        }
-
-        ride_status_log::create([
-            'ride_id'    => $ride->id,
-            'status'     => $logStatus,
-            'changed_by' => $by,
-            'note'       => $reason,
-        ]);
-
-        $ride = $ride->fresh();
-        $ride->cancellation_fee = $charged; // dynamic attribute, not saved
-
-        return $ride;
-    });
-
-    // transaction committed: now notify the other party
-    $ride->load('rider', 'driver.user');
-    $fee = (float) $ride->cancellation_fee;
-
-    if ($by === 'rider') {
-        // driver_id is still set, so tell the driver (nobody if the ride was still searching)
-        if ($ride->driver) {
             $this->notifications->send(
-                $ride->driver->user,
+                $ride->rider,
                 'ride_cancelled',
-                'Ride cancelled',
-                'The rider cancelled the ride.'
+                'Driver cancelled',
+                'Your driver cancelled.',
+                ['ride_id' => $ride->id, 'status' => $ride->status],
             );
         }
-    } else {
-        $this->notifications->send(
-            $ride->rider,
-            'ride_cancelled',
-            'Driver cancelled',
-            'Your driver cancelled.',
-            ['ride_id' => $ride->id, 'status' => $ride->status],
-        );
+
+        return $ride;
     }
 
-    return $ride;
-}
+    private function cancellationFee(Ride $ride): float
+    {
+        if ($ride->status === 'searching') {
+            return 0.0;
+        }
 
-private function cancellationFee(Ride $ride): float
-{
-    if ($ride->status === 'searching') {
-        return 0.0;
+        return (float) $this->setting->get('cancellation_fee', 5);
     }
 
-    return (float) $this->setting->get('cancellation_fee', 5);
-}
-
-private function chargeFee(Ride $ride, string $by, float $fee): float
+   private function chargeFee(Ride $ride, string $by, float $fee): float
 {
     $driver = $ride->driver;
 
@@ -449,10 +530,12 @@ private function chargeFee(Ride $ride, string $by, float $fee): float
         return 0.0;
     }
 
-    $this->wallet->debit($payerId, $fee, $payerType, "Cancellation fee for ride #{$ride->id}", $ride);
+    $this->wallet->debit($payerId, $fee, $payerType, "Cancellation fee for ride #{$ride->id}", $ride, 'cancellation_fee');
 
     if ($by === 'rider') {
-        $this->wallet->credit($driver->user_id, $fee, 'driver', "Cancellation compensation for ride #{$ride->id}", $ride);
+        $this->wallet->credit($driver->user_id, $fee, 'driver', "Cancellation compensation for ride #{$ride->id}", $ride, 'cancellation_compensation');
+    } else {
+        $this->wallet->creditSystem($fee, "Driver cancellation fee for ride #{$ride->id}", $ride, 'cancellation_fee');
     }
 
     return $fee;

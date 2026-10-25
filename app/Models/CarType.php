@@ -7,19 +7,23 @@ use Illuminate\Database\Eloquent\Model;
 class CarType extends Model
 {
     protected $fillable = [
-        'name',
-        'description',
+       'type',
+        'icon',
         'base_fare',
-        'per_km_fare',
-        'per_minute_fare',
-        'image_url',
+        'per_km',
+        'per_minute',
+        'min_fare',
+        'capacity',
     ];
 
     protected $casts = [
-        'base_fare' => 'float',
-        'per_km_fare' => 'float',
-        'per_minute_fare' => 'float',
+       'base_fare'  => 'float',
+        'per_km'     => 'float',
+        'per_minute' => 'float',
+        'min_fare'   => 'float',
+        'capacity'   => 'integer',
     ];
+    
 
     public function drivers()
     {

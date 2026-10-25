@@ -30,7 +30,10 @@ class Ride extends Model
         'cancelled_at',
         'cancel_reason',
         'cancel_by',
-        
+        'promo_code_id',
+        'commission_amount',
+        'driver_earning',
+
     ];
 
     protected $casts = [
@@ -72,11 +75,15 @@ class Ride extends Model
 
     public function locations(): HasOne
     {
-         return $this->hasOne(RideLocation::class)->latestOfMany('recorded_at');
+        return $this->hasOne(RideLocation::class)->latestOfMany('recorded_at');
     }
 
     public function walletTransactions()
     {
-        return $this->morphMany(WalletTranactions::class, 'reference');
+        return $this->morphMany(WalletTransaction::class, 'reference');
+    }
+    public function promoCode()
+    {
+        return $this->belongsTo(PromoCode::class)->withTrashed();
     }
 }

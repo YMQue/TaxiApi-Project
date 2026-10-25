@@ -6,15 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-class WalletTranactions extends Model
+class WalletTransaction extends Model
 {
      protected $fillable = [
-        'wallet_id',
-        'type',
-        'amount',
-        'description',
-        'reference_type',
-        'reference_id',
+       'wallet_id',
+    'type',
+    'category',
+    'amount',
+    'balance_after',
+    'description',
+    'reference_type',
+    'reference_id',
     ];
  
     

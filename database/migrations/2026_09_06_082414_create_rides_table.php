@@ -32,6 +32,9 @@ return new class extends Migration
 
             $table->decimal('estimated_fare', 10, 2)->nullable();
             $table->decimal('final_fare', 10, 2)->nullable();
+            $table->decimal('commission_amount', 10, 2)->nullable();
+             $table->decimal('driver_earning', 10, 2)->nullable();
+
             $table->string('payment_method')->nullable(); // cash, wallet, card
 
             $table->timestamp('started_at')->nullable();

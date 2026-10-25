@@ -85,6 +85,11 @@ class Driver extends Authenticatable
         return $this->user->status === 'active';
     }
 
+    public function isOnline():bool
+    {
+        return $this->is_online === true;
+    }
+
     public function isAvailable(): bool
     {
         return $this->is_online && $this->isActive();

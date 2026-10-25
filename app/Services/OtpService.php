@@ -29,6 +29,7 @@ class OtpService
         ]);
         Cache::forget('otp_attempts_' . $phoneNumber);
         Cache::forget('otp_blocked_' . $phoneNumber);
+        return $code;
     }
     public function verifyOtp(string $phoneNumber, string $code)
     {

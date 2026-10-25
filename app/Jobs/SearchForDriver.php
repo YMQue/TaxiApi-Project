@@ -36,9 +36,9 @@ class SearchForDriver implements ShouldQueue
         if (!$ride || $ride->status !== 'searching') {
             return;
         }
-        $maxAttempts = $settings->get('max_driver_search_attempts', 2);
-        $timeout     = $settings->get('ride_request_timeout_sec', 30);
-        $radiusKm    = $settings->get('driver_search_radius_km', 5);
+        $maxAttempts = (int) $settings->get('max_driver_search_attempts', 2);
+        $timeout = (int) $this->setting->get('ride_request_timeout_sec', 30);
+        $radius  = (float) $this->setting->get('driver_search_radius_km', 5);
 
         $excludedIds = Cache::get("ride:{$ride->id}:excluded_drivers", []);
 
@@ -67,7 +67,7 @@ class SearchForDriver implements ShouldQueue
             ->whereNotExists(fn ($q) => $q->from('rides')
                 ->whereColumn('rides.driver_id', 'drivers.id')
                 ->whereIn('rides.status', ['accepted', 'arrived', 'in_progress']))
-            ->having('distance_km', '<=', $radiusKm)
+            ->having('distance_km', '<=', $radius)
             ->orderBy('distance_km')
             ->first();
 
