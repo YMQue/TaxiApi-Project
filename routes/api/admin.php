@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Admin\AdminController;
 use App\Http\Controllers\Api\Admin\CartypeController;
 use App\Http\Controllers\Api\Admin\Dashboard;
+use App\Http\Controllers\Api\Admin\PricingRuleController;
 use App\Http\Controllers\Api\Admin\PromoController as AdminPromoController;
 use App\Http\Controllers\Api\Admin\ReportController;
 use App\Http\Controllers\Api\Admin\RideController;
@@ -49,9 +50,15 @@ Route::prefix('admin')->group(function () {
         });
 
         //---------Driver
-        Route::middleware('admin.permission:view_drivers,manage_drivers')->group(function () {
+        Route::middleware('admin.permission:view_drivers')->group(function () {
             Route::get('drivers', [Dashboard::class, 'driver_index']);
             Route::get('drivers/{id}', [Dashboard::class, 'driver_show'])->whereNumber('id');
+        });
+         Route::middleware('admin.permission:manage_drivers')->group(function () {
+            Route::post('drivers/{id}/suspend', [Dashboard::class, 'suspended'])->whereNumber('id');
+            Route::post('drivers/{id}/approve', [Dashboard::class, 'approve'])->whereNumber('id');
+            Route::post('drivers/{id}/reject', [Dashboard::class, 'reject'])->whereNumber('id');
+
         });
 
         //---------Rides
@@ -79,6 +86,13 @@ Route::middleware('admin.permission:manage_promos')->group(function () {
     Route::delete('promos/{promo}', [AdminPromoController::class, 'destroy'])->whereNumber('promo');
 });
     });
+
+    Route::middleware('admin.role:super')->group(function () {
+    Route::get('pricing-rules', [PricingRuleController::class, 'index']);
+    Route::post('pricing-rules', [PricingRuleController::class, 'store']);
+    Route::put('pricing-rules/{pricingRule}', [PricingRuleController::class, 'update'])->whereNumber('pricingRule');
+    Route::delete('pricing-rules/{pricingRule}', [PricingRuleController::class, 'destroy'])->whereNumber('pricingRule');
+});
 
 
 Route::middleware('admin.role:super')->group(function () {

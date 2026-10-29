@@ -16,7 +16,6 @@ use Illuminate\Support\Facades\Cache;
 class SearchForDriver implements ShouldQueue
 {
     use Queueable;
-     private SettingRepositoryInterface $setting;
     
     /**
      * Create a new job instance.
@@ -37,8 +36,8 @@ class SearchForDriver implements ShouldQueue
             return;
         }
         $maxAttempts = (int) $settings->get('max_driver_search_attempts', 2);
-        $timeout = (int) $this->setting->get('ride_request_timeout_sec', 30);
-        $radius  = (float) $this->setting->get('driver_search_radius_km', 5);
+        $timeout = (int) $settings->get('ride_request_timeout_sec', 30);
+        $radius  = (float) $settings->get('driver_search_radius_km', 5);
 
         $excludedIds = Cache::get("ride:{$ride->id}:excluded_drivers", []);
 

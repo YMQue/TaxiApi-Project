@@ -66,6 +66,7 @@ return [
     */
 
     'timezone' => 'UTC',
+    'pricing_timezone' => env('PRICING_TIMEZONE', env('APP_TIMEZONE', 'UTC')),
 
     /*
     |--------------------------------------------------------------------------

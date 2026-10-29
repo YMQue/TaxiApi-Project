@@ -51,12 +51,16 @@ class RideRepository implements RideRepositoryInterface
 
         $promoCode = $data['promo_code'] ?? null;
 
-        $cartype = CarType::query()->get();
+        $cartype = CarType::with(['pricingRules' => fn ($q) => $q->where('is_active', true)])->get();
+        
         $estimates = $cartype->map(function (CarType $cartype) use ($distanceKm, $durationMinutes, $promoCode, $riderId) {
-            $fare = $cartype->base_fare
-                + ($distanceKm * $cartype->per_km)
-                + ($durationMinutes * $cartype->per_min);
-            $fare = max($fare, $cartype->min_fare);
+             $now = now();
+             $price = $cartype->priceAt($now);
+
+        $fare = $price['base_fare']
+            + ($distanceKm * $price['per_km'])
+            + ($durationMinutes * $price['per_minute']);
+        $fare = max($fare, $price['min_fare']);
 
             $estimate = [
                 'car_type_id'      => $cartype->id,
@@ -66,6 +70,8 @@ class RideRepository implements RideRepositoryInterface
                 'distance_km'      => round($distanceKm, 2),
                 'duration_minutes' => round($durationMinutes),
                 'estimated_fare'   => round($fare, 2),
+                'pricing_rule'     => $price['pricing_rule_name'],    
+
             ];
 
             // promo preview (only when a code and a rider are given)

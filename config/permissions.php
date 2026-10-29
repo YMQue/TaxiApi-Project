@@ -32,5 +32,8 @@ return [
     //Promos
     'view_promos',
     'manage_promos',
+
+    //Car_types
+    'manage_car_types'
     
 ];
