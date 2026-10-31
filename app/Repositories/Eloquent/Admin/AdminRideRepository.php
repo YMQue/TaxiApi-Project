@@ -11,6 +11,7 @@ class AdminRideRepository implements AdminRideRepositoryinterface
     public function paginateForRides(array $filters, int $perPage = 15): LengthAwarePaginator
     {
         return Ride::query()
+            ->with(['rider', 'driver.user', 'carType'])
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['rider_id'] ?? null, fn ($q, $v) => $q->where('rider_id', $v))
             ->when($filters['driver_id'] ?? null, fn ($q, $v) => $q->where('driver_id', $v))
@@ -33,6 +34,7 @@ public function findForRide(int $id): Ride
 public function liveRides(): Collection
 {
     return Ride::query()
+        ->with(['locations', 'rider', 'driver.user'])
         ->whereIn('status', ['accepted', 'arrived', 'in_progress'])
         ->with(['locations'])
         ->latest()

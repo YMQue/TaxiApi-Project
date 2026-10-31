@@ -64,7 +64,7 @@ class RideRepository implements RideRepositoryInterface
 
             $estimate = [
                 'car_type_id'      => $cartype->id,
-                'name'             => $cartype->name,
+                'type'             => $cartype->type,
                 'icon'             => $cartype->icon,
                 'capacity'         => $cartype->capacity,
                 'distance_km'      => round($distanceKm, 2),

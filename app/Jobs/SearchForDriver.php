@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
 
+
 class SearchForDriver implements ShouldQueue
 {
     use Queueable;
@@ -96,6 +97,14 @@ class SearchForDriver implements ShouldQueue
             'cancelled_at'  => now(),
             'cancel_reason' => 'No driver found',
             'cancel_by'     => 'system',
+        ]);
+
+         ride_status_log::create([
+            'ride_id'    => $ride->id,
+            'status'     => 'no_driver_found',
+            'changed_by' => 'system',
+            'changed_at' => now(),
+            'note'       => 'No driver accepted the ride',
         ]);
 
         Cache::forget("ride:{$ride->id}:excluded_drivers");

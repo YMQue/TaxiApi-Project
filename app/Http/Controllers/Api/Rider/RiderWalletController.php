@@ -17,6 +17,8 @@ class RiderWalletController extends Controller
 
     public function wallet(Request $request): JsonResponse
     {
+                
+
         $wallet = $this->walletService->getBalance($request->user()->id, 'rider');
 
         return $this->success('Wallet balance', $wallet);

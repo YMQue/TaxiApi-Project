@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
         $this->call([
             SettingsSeeder::class,
             AdminSeeder::class,
+            CarTypeSeeder::class,
+            SuperAdminWalletSeeder::class,
         ]);
     }
 }

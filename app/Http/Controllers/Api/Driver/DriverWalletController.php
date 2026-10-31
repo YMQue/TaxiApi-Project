@@ -19,14 +19,16 @@ class DriverWalletController extends Controller
 
     public function wallet(Request $request): JsonResponse
     {
-        $wallet = $this->walletService->getBalance($request->user()->driver->id, 'driver');
+
+        $wallet = $this->walletService->getBalance($request->user()->id, 'driver');
 
         return $this->success('Wallet balance', $wallet);
     }
 
     public function transactions(Request $request): JsonResponse
     {
-        $transactions = $this->walletService->getTransactions($request->user()->driver->id, 'driver');
+
+        $transactions = $this->walletService->getTransactions($request->user()->id, 'driver');
 
         return $this->success('Wallet transactions', $transactions);
     }
@@ -45,12 +47,13 @@ class DriverWalletController extends Controller
         ]);
 
         $driverId = $request->user()->driver->id;
+        $userId   = $request->user()->id; 
 
         if (WithdrawalRequest::where('driver_id', $driverId)->where('status', 'pending')->exists()) {
             throw new BusinessRuleException('You already have a pending withdrawal request.', 409);
         }
 
-        $balance = (float) $this->walletService->getBalance($driverId, 'driver')['balance'];
+        $balance = (float) $this->walletService->getBalance($userId, 'driver')['balance'];
 
         if ((float) $data['amount'] > $balance) {
             throw new BusinessRuleException('Insufficient wallet balance.');

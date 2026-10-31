@@ -14,7 +14,7 @@ return new class extends Migration
         Schema::create('rides', function (Blueprint $table) {
             $table->id();
             $table->foreignId('rider_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('driver_id')->constrained('drivers')->nullable()->cascadeOnDelete();
+            $table->foreignId('driver_id')->nullable()->constrained('drivers')->nullOnDelete();
             $table->foreignId('car_type_id')->constrained('car_types')->cascadeOnDelete();
 
             $table->enum('status',['searching','accepted','arrived','in_progress','completed','cancelled']);

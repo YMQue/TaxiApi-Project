@@ -22,6 +22,7 @@ class Driver extends Authenticatable
         'is_online',
         'current_lat',
         'current_lng',
+        'bearing',
         'rate',
         'wallet_balance',
         'status',
@@ -30,6 +31,9 @@ class Driver extends Authenticatable
     protected $casts = [
         'is_online' => 'boolean',
         'rate' => 'string',
+        'current_lat' => 'float',
+        'current_lng' => 'float',
+        'bearing'     => 'float',
     ];
 
 

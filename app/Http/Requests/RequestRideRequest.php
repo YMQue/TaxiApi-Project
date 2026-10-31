@@ -22,6 +22,8 @@ class RequestRideRequest extends FormRequest
             'drop_lng'       => 'required|numeric|between:-180,180',
             'drop_address'   => 'nullable|string|max:255',
             'payment_method' => 'nullable|string',
+            'promo_code' => ['nullable', 'string', 'max:50'],
+
         ];
     }
 }
